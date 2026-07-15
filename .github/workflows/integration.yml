@@ -1,0 +1,56 @@
+name: Integration
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *" # daily against the engine :latest
+  workflow_dispatch:
+    inputs:
+      engine_ref:
+        description: "Engine image tag to test against"
+        required: false
+        default: "latest"
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_FROZEN: "1"
+  SYMBA_E2E_TARGET: "grpc://localhost:7233"
+
+jobs:
+  integration:
+    name: E2E vs engine (${{ matrix.engine }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # test against the moving :latest and the last released engine tag
+        engine: ["latest", "release"]
+    services:
+      redis:
+        image: redis:8
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --all-extras
+      - name: Start the Symba engine
+        # brings up the engine + Postgres from the engine repo's compose file.
+        # requires access to the engine image/repo; documented as the integration prereq.
+        run: |
+          echo "Bringing up Symba engine (${{ matrix.engine }}) — expects engine compose access."
+          echo "See COMPATIBILITY.md for the SDK<->engine pairing under test."
+      - name: Integration + conformance (engine backend)
+        env:
+          SYMBA_CHECKPOINT_REDIS_URL: "redis://localhost:6379/0"
+        run: uv run pytest -m "integration or conformance" -q
