@@ -53,6 +53,17 @@ class UpstreamOutputs(Mapping[str, Any]):
     The lazy ``GetResult`` tier is an RPC and therefore lives behind the async
     :meth:`fetch`. When the local worker registry knows the producer's
     ``output_schema`` the dict is model-validated into that type (AD-15).
+
+    Tier semantics (SDK-4) — this is load-bearing:
+
+    * ``outputs[key]``, ``key in outputs`` and the inherited ``outputs.get(key)``
+      resolve the INLINE tier ONLY. They never trigger a lazy ``GetResult`` RPC;
+      a miss is a miss (``KeyError`` / ``False`` / the ``.get`` default).
+    * ``await outputs.fetch(key)`` is the ONLY path that consults the lazy tier
+      after an inline miss.
+
+    So ``.get()`` on a lazily-available-but-not-inline key returns the default,
+    NOT the lazy value — use :meth:`fetch` when you need the lazy tier.
     """
 
     def __init__(

@@ -19,8 +19,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "grpcio>=1.66,<2.0",
-    "protobuf>=5.29,<8.0",
+    # Floors match the committed gencode (protobuf 7.35.0 / grpcio 1.82.1); a host
+    # project's transitive resolution must not land below them or the generated
+    # stubs raise at import (PKG-1). Keep in lockstep when regenerating stubs.
+    "grpcio>=1.82.1,<2.0",
+    "protobuf>=7.35,<8.0",
     "pydantic>=2.7,<3.0",
     "pydantic-settings>=2.3,<3.0",
     "structlog>=24.1,<27.0",
@@ -41,7 +44,7 @@ Engine = "https://github.com/amplior-ai/symba"
 
 [dependency-groups]
 dev = [
-    "grpcio-tools>=1.66,<2.0",
+    "grpcio-tools>=1.82.1,<2.0",
     "ruff==0.15.21",
     "pyright==1.1.411",
     "pytest>=9.0,<10.0",

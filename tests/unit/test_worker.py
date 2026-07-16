@@ -49,6 +49,18 @@ async def test_task_decorator_registers():
     assert await echo(None, {"a": 1}) == {"a": 1}  # type: ignore[arg-type]
 
 
+async def test_checkpoint_redis_url_kwarg_flows_to_settings():
+    """SDK-5: an explicit kwarg configures the fast path without an env var."""
+    w = _worker(checkpoint_redis_url="redis://cache:6379/0")
+    assert w._settings.redis.url == "redis://cache:6379/0"
+
+
+async def test_checkpoint_redis_url_defaults_to_none():
+    """SDK-5: absent kwarg + absent env leaves the durable-only path (url None)."""
+    w = _worker()
+    assert w._settings.redis.url is None
+
+
 async def test_boot_rejects_sync_io_handler():
     w = _worker()
 

@@ -24,10 +24,10 @@ proto-gen:  ## Regenerate committed proto stubs. Use SYMBA_TAG=vX.Y.Z or PROTO_S
 		--python_out=/tmp/symba-proto-out \
 		--grpc_python_out=/tmp/symba-proto-out \
 		--pyi_out=/tmp/symba-proto-out \
-		$$SRC/simba/v1/*.proto && \
-	cp /tmp/symba-proto-out/simba/v1/*_pb2.py \
-	   /tmp/symba-proto-out/simba/v1/*_pb2.pyi \
-	   /tmp/symba-proto-out/simba/v1/*_pb2_grpc.py src/symba/_proto/ && \
+		$$SRC/symba/v1/*.proto && \
+	cp /tmp/symba-proto-out/symba/v1/*_pb2.py \
+	   /tmp/symba-proto-out/symba/v1/*_pb2.pyi \
+	   /tmp/symba-proto-out/symba/v1/*_pb2_grpc.py src/symba/_proto/ && \
 	uv run python tools/fix_proto_imports.py && \
 	if [ -n "$(SYMBA_TAG)" ]; then echo "$(SYMBA_TAG)" > src/symba/_proto/VERSION; fi
 

@@ -183,6 +183,11 @@ class SyncEngine:
         _guard_not_in_loop()
         return self._loop.run(self._engine.get_job(job_id))
 
+    def probe(self, *, timeout_s: float = 8.0) -> Any:
+        """Bounded control-plane probe for ``doctor`` (ENG-1 SDK half)."""
+        _guard_not_in_loop()
+        return self._loop.run(self._engine.probe(timeout_s=timeout_s), timeout=timeout_s + 5)
+
     def query(
         self,
         *,

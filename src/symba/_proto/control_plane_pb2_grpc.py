@@ -3,8 +3,8 @@
 import grpc
 import warnings
 
-from . import common_pb2 as simba_dot_v1_dot_common__pb2
-from . import control_plane_pb2 as simba_dot_v1_dot_control__plane__pb2
+from . import common_pb2 as symba_dot_v1_dot_common__pb2
+from . import control_plane_pb2 as symba_dot_v1_dot_control__plane__pb2
 
 GRPC_GENERATED_VERSION = '1.82.1'
 GRPC_VERSION = grpc.__version__
@@ -19,7 +19,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in simba/v1/control_plane_pb2_grpc.py depends on'
+        + ' but the generated code in symba/v1/control_plane_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -38,49 +38,54 @@ class ClientServiceStub:
             channel: A grpc.Channel.
         """
         self.Submit = channel.unary_unary(
-                '/simba.v1.ClientService/Submit',
-                request_serializer=simba_dot_v1_dot_control__plane__pb2.SubmitRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_control__plane__pb2.SubmitResponse.FromString,
+                '/symba.v1.ClientService/Submit',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.SubmitRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_control__plane__pb2.SubmitResponse.FromString,
                 _registered_method=True)
         self.FanOut = channel.unary_unary(
-                '/simba.v1.ClientService/FanOut',
-                request_serializer=simba_dot_v1_dot_control__plane__pb2.FanOutRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_control__plane__pb2.FanOutResponse.FromString,
+                '/symba.v1.ClientService/FanOut',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.FanOutRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_control__plane__pb2.FanOutResponse.FromString,
                 _registered_method=True)
         self.Query = channel.unary_unary(
-                '/simba.v1.ClientService/Query',
-                request_serializer=simba_dot_v1_dot_control__plane__pb2.QueryRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_control__plane__pb2.QueryResponse.FromString,
+                '/symba.v1.ClientService/Query',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.QueryRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_control__plane__pb2.QueryResponse.FromString,
                 _registered_method=True)
         self.GetJob = channel.unary_unary(
-                '/simba.v1.ClientService/GetJob',
-                request_serializer=simba_dot_v1_dot_control__plane__pb2.GetJobRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_common__pb2.Job.FromString,
+                '/symba.v1.ClientService/GetJob',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.GetJobRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_common__pb2.Job.FromString,
                 _registered_method=True)
         self.AwaitJob = channel.unary_unary(
-                '/simba.v1.ClientService/AwaitJob',
-                request_serializer=simba_dot_v1_dot_control__plane__pb2.AwaitJobRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_common__pb2.Job.FromString,
+                '/symba.v1.ClientService/AwaitJob',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.AwaitJobRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_common__pb2.Job.FromString,
                 _registered_method=True)
         self.Cancel = channel.unary_unary(
-                '/simba.v1.ClientService/Cancel',
-                request_serializer=simba_dot_v1_dot_control__plane__pb2.CancelRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_control__plane__pb2.CancelResponse.FromString,
+                '/symba.v1.ClientService/Cancel',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.CancelRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_control__plane__pb2.CancelResponse.FromString,
                 _registered_method=True)
         self.Signal = channel.unary_unary(
-                '/simba.v1.ClientService/Signal',
-                request_serializer=simba_dot_v1_dot_control__plane__pb2.SignalRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_control__plane__pb2.SignalResponse.FromString,
+                '/symba.v1.ClientService/Signal',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.SignalRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_control__plane__pb2.SignalResponse.FromString,
                 _registered_method=True)
         self.Resubmit = channel.unary_unary(
-                '/simba.v1.ClientService/Resubmit',
-                request_serializer=simba_dot_v1_dot_control__plane__pb2.ResubmitRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_control__plane__pb2.SubmitResponse.FromString,
+                '/symba.v1.ClientService/Resubmit',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.ResubmitRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_control__plane__pb2.SubmitResponse.FromString,
                 _registered_method=True)
         self.StreamEvents = channel.unary_stream(
-                '/simba.v1.ClientService/StreamEvents',
-                request_serializer=simba_dot_v1_dot_control__plane__pb2.StreamEventsRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_common__pb2.JobEvent.FromString,
+                '/symba.v1.ClientService/StreamEvents',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.StreamEventsRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_common__pb2.JobEvent.FromString,
+                _registered_method=True)
+        self.GetGate = channel.unary_unary(
+                '/symba.v1.ClientService/GetGate',
+                request_serializer=symba_dot_v1_dot_control__plane__pb2.GetGateRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_control__plane__pb2.GateStatus.FromString,
                 _registered_method=True)
 
 
@@ -151,59 +156,71 @@ class ClientServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetGate(self, request, context):
+        """authoritative gate counts
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ClientServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Submit': grpc.unary_unary_rpc_method_handler(
                     servicer.Submit,
-                    request_deserializer=simba_dot_v1_dot_control__plane__pb2.SubmitRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_control__plane__pb2.SubmitResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.SubmitRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_control__plane__pb2.SubmitResponse.SerializeToString,
             ),
             'FanOut': grpc.unary_unary_rpc_method_handler(
                     servicer.FanOut,
-                    request_deserializer=simba_dot_v1_dot_control__plane__pb2.FanOutRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_control__plane__pb2.FanOutResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.FanOutRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_control__plane__pb2.FanOutResponse.SerializeToString,
             ),
             'Query': grpc.unary_unary_rpc_method_handler(
                     servicer.Query,
-                    request_deserializer=simba_dot_v1_dot_control__plane__pb2.QueryRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_control__plane__pb2.QueryResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.QueryRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_control__plane__pb2.QueryResponse.SerializeToString,
             ),
             'GetJob': grpc.unary_unary_rpc_method_handler(
                     servicer.GetJob,
-                    request_deserializer=simba_dot_v1_dot_control__plane__pb2.GetJobRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_common__pb2.Job.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.GetJobRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_common__pb2.Job.SerializeToString,
             ),
             'AwaitJob': grpc.unary_unary_rpc_method_handler(
                     servicer.AwaitJob,
-                    request_deserializer=simba_dot_v1_dot_control__plane__pb2.AwaitJobRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_common__pb2.Job.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.AwaitJobRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_common__pb2.Job.SerializeToString,
             ),
             'Cancel': grpc.unary_unary_rpc_method_handler(
                     servicer.Cancel,
-                    request_deserializer=simba_dot_v1_dot_control__plane__pb2.CancelRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_control__plane__pb2.CancelResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.CancelRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_control__plane__pb2.CancelResponse.SerializeToString,
             ),
             'Signal': grpc.unary_unary_rpc_method_handler(
                     servicer.Signal,
-                    request_deserializer=simba_dot_v1_dot_control__plane__pb2.SignalRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_control__plane__pb2.SignalResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.SignalRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_control__plane__pb2.SignalResponse.SerializeToString,
             ),
             'Resubmit': grpc.unary_unary_rpc_method_handler(
                     servicer.Resubmit,
-                    request_deserializer=simba_dot_v1_dot_control__plane__pb2.ResubmitRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_control__plane__pb2.SubmitResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.ResubmitRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_control__plane__pb2.SubmitResponse.SerializeToString,
             ),
             'StreamEvents': grpc.unary_stream_rpc_method_handler(
                     servicer.StreamEvents,
-                    request_deserializer=simba_dot_v1_dot_control__plane__pb2.StreamEventsRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_common__pb2.JobEvent.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.StreamEventsRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_common__pb2.JobEvent.SerializeToString,
+            ),
+            'GetGate': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetGate,
+                    request_deserializer=symba_dot_v1_dot_control__plane__pb2.GetGateRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_control__plane__pb2.GateStatus.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'simba.v1.ClientService', rpc_method_handlers)
+            'symba.v1.ClientService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('simba.v1.ClientService', rpc_method_handlers)
+    server.add_registered_method_handlers('symba.v1.ClientService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -226,9 +243,9 @@ class ClientService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.ClientService/Submit',
-            simba_dot_v1_dot_control__plane__pb2.SubmitRequest.SerializeToString,
-            simba_dot_v1_dot_control__plane__pb2.SubmitResponse.FromString,
+            '/symba.v1.ClientService/Submit',
+            symba_dot_v1_dot_control__plane__pb2.SubmitRequest.SerializeToString,
+            symba_dot_v1_dot_control__plane__pb2.SubmitResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -253,9 +270,9 @@ class ClientService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.ClientService/FanOut',
-            simba_dot_v1_dot_control__plane__pb2.FanOutRequest.SerializeToString,
-            simba_dot_v1_dot_control__plane__pb2.FanOutResponse.FromString,
+            '/symba.v1.ClientService/FanOut',
+            symba_dot_v1_dot_control__plane__pb2.FanOutRequest.SerializeToString,
+            symba_dot_v1_dot_control__plane__pb2.FanOutResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -280,9 +297,9 @@ class ClientService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.ClientService/Query',
-            simba_dot_v1_dot_control__plane__pb2.QueryRequest.SerializeToString,
-            simba_dot_v1_dot_control__plane__pb2.QueryResponse.FromString,
+            '/symba.v1.ClientService/Query',
+            symba_dot_v1_dot_control__plane__pb2.QueryRequest.SerializeToString,
+            symba_dot_v1_dot_control__plane__pb2.QueryResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -307,9 +324,9 @@ class ClientService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.ClientService/GetJob',
-            simba_dot_v1_dot_control__plane__pb2.GetJobRequest.SerializeToString,
-            simba_dot_v1_dot_common__pb2.Job.FromString,
+            '/symba.v1.ClientService/GetJob',
+            symba_dot_v1_dot_control__plane__pb2.GetJobRequest.SerializeToString,
+            symba_dot_v1_dot_common__pb2.Job.FromString,
             options,
             channel_credentials,
             insecure,
@@ -334,9 +351,9 @@ class ClientService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.ClientService/AwaitJob',
-            simba_dot_v1_dot_control__plane__pb2.AwaitJobRequest.SerializeToString,
-            simba_dot_v1_dot_common__pb2.Job.FromString,
+            '/symba.v1.ClientService/AwaitJob',
+            symba_dot_v1_dot_control__plane__pb2.AwaitJobRequest.SerializeToString,
+            symba_dot_v1_dot_common__pb2.Job.FromString,
             options,
             channel_credentials,
             insecure,
@@ -361,9 +378,9 @@ class ClientService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.ClientService/Cancel',
-            simba_dot_v1_dot_control__plane__pb2.CancelRequest.SerializeToString,
-            simba_dot_v1_dot_control__plane__pb2.CancelResponse.FromString,
+            '/symba.v1.ClientService/Cancel',
+            symba_dot_v1_dot_control__plane__pb2.CancelRequest.SerializeToString,
+            symba_dot_v1_dot_control__plane__pb2.CancelResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -388,9 +405,9 @@ class ClientService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.ClientService/Signal',
-            simba_dot_v1_dot_control__plane__pb2.SignalRequest.SerializeToString,
-            simba_dot_v1_dot_control__plane__pb2.SignalResponse.FromString,
+            '/symba.v1.ClientService/Signal',
+            symba_dot_v1_dot_control__plane__pb2.SignalRequest.SerializeToString,
+            symba_dot_v1_dot_control__plane__pb2.SignalResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -415,9 +432,9 @@ class ClientService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.ClientService/Resubmit',
-            simba_dot_v1_dot_control__plane__pb2.ResubmitRequest.SerializeToString,
-            simba_dot_v1_dot_control__plane__pb2.SubmitResponse.FromString,
+            '/symba.v1.ClientService/Resubmit',
+            symba_dot_v1_dot_control__plane__pb2.ResubmitRequest.SerializeToString,
+            symba_dot_v1_dot_control__plane__pb2.SubmitResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -442,9 +459,36 @@ class ClientService:
         return grpc.experimental.unary_stream(
             request,
             target,
-            '/simba.v1.ClientService/StreamEvents',
-            simba_dot_v1_dot_control__plane__pb2.StreamEventsRequest.SerializeToString,
-            simba_dot_v1_dot_common__pb2.JobEvent.FromString,
+            '/symba.v1.ClientService/StreamEvents',
+            symba_dot_v1_dot_control__plane__pb2.StreamEventsRequest.SerializeToString,
+            symba_dot_v1_dot_common__pb2.JobEvent.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetGate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/symba.v1.ClientService/GetGate',
+            symba_dot_v1_dot_control__plane__pb2.GetGateRequest.SerializeToString,
+            symba_dot_v1_dot_control__plane__pb2.GateStatus.FromString,
             options,
             channel_credentials,
             insecure,

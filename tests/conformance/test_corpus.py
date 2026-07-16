@@ -60,7 +60,8 @@ async def test_gate_math_counts_success_and_skips(backend_factory):
 
         @w.task("collect")
         async def collect(ctx, payload):
-            return {"succeeded": payload["succeeded"], "expected": payload["expected"]}
+            gate = payload["__gate__"]
+            return {"succeeded": gate["succeeded"], "expected": gate["expected"]}
 
     be = backend_factory(build)
     gate = await be.client.fan_out(
@@ -89,7 +90,8 @@ async def test_gate_all_skipped_still_fires(backend_factory):
 
         @w.task("after")
         async def after(ctx, payload):
-            return {"succeeded": payload["succeeded"], "expected": payload["expected"]}
+            gate = payload["__gate__"]
+            return {"succeeded": gate["succeeded"], "expected": gate["expected"]}
 
     be = backend_factory(build)
     gate = await be.client.fan_out(

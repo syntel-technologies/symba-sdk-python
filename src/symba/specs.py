@@ -137,7 +137,13 @@ def build_job_spec(
     lease_ttl_s: int | None = None,
     retry: RetryPolicy | None = None,
 ) -> common_pb2.JobSpec:
-    """Build one ``JobSpec`` proto from submit kwargs, validating shape."""
+    """Build one ``JobSpec`` proto from submit kwargs, validating shape.
+
+    Chaining contract (SDK-3): a chained TAIL task starts with an EMPTY payload —
+    the original submit ``payload`` does NOT flow down the chain. Thread data to a
+    tail by RETURNING it from the predecessor and reading it back via
+    ``ctx.output[<predecessor_task>]``; do not expect ``ctx.payload`` to carry it.
+    """
     if not task or not isinstance(task, str):
         raise SymbaError("submit requires a non-empty task name")
 
@@ -189,10 +195,28 @@ def spec_from_dict(d: dict[str, Any], *, default_pipeline: str | None = None) ->
     if unknown:
         raise SymbaError(f"unknown submit keys: {sorted(unknown)}")
     kwargs = dict(d)
+    _validate_chain_head(kwargs.get("task"), kwargs.get("chain"))
     retry = kwargs.get("retry")
     if isinstance(retry, dict):
         kwargs["retry"] = RetryPolicy(**retry)
     return build_job_spec(default_pipeline=default_pipeline, **kwargs)
+
+
+def _validate_chain_head(task: Any, chain: Any) -> None:
+    """Reject an ambiguous ``task`` + ``chain`` where ``chain[0]`` is not ``task``.
+
+    The engine advances a chain from its head; a dict that carries both a
+    continuation ``task`` and a ``chain`` whose first entry differs would silently
+    run ``chain[0]`` and drop ``task`` (spec 6.4). Fail fast so the DAG a caller
+    describes is the DAG that runs.
+    """
+    if not chain or not task:
+        return
+    if chain[0] != task:
+        raise SymbaError(
+            f"ambiguous continuation: task={task!r} but chain[0]={chain[0]!r}; "
+            f"lead the chain with the task itself (chain=[{task!r}, ...]) or omit task"
+        )
 
 
 __all__ = [

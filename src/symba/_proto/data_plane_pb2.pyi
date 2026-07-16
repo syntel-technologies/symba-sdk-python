@@ -1,7 +1,7 @@
 import datetime
 
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from simba.v1 import common_pb2 as _common_pb2
+from symba.v1 import common_pb2 as _common_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -100,20 +100,22 @@ class CompleteResponse(_message.Message):
     def __init__(self, accepted: _Optional[bool] = ...) -> None: ...
 
 class FailRequest(_message.Message):
-    __slots__ = ("job_id", "lease_token", "error_type", "error_message", "stack_hash", "retryable")
+    __slots__ = ("job_id", "lease_token", "error_type", "error_message", "stack_hash", "retryable", "max_attempts")
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     LEASE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     ERROR_TYPE_FIELD_NUMBER: _ClassVar[int]
     ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     STACK_HASH_FIELD_NUMBER: _ClassVar[int]
     RETRYABLE_FIELD_NUMBER: _ClassVar[int]
+    MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
     job_id: str
     lease_token: str
     error_type: str
     error_message: str
     stack_hash: str
     retryable: bool
-    def __init__(self, job_id: _Optional[str] = ..., lease_token: _Optional[str] = ..., error_type: _Optional[str] = ..., error_message: _Optional[str] = ..., stack_hash: _Optional[str] = ..., retryable: _Optional[bool] = ...) -> None: ...
+    max_attempts: int
+    def __init__(self, job_id: _Optional[str] = ..., lease_token: _Optional[str] = ..., error_type: _Optional[str] = ..., error_message: _Optional[str] = ..., stack_hash: _Optional[str] = ..., retryable: _Optional[bool] = ..., max_attempts: _Optional[int] = ...) -> None: ...
 
 class FailResponse(_message.Message):
     __slots__ = ("accepted", "will_retry")

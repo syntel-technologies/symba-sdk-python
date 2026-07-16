@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -31,6 +32,47 @@ _log = get_logger(component="engine")
 #: One AwaitJob request never blocks the server longer than this; result()
 #: re-issues across slices until the caller's own deadline (spec 7.1).
 _AWAIT_SLICE_S = 60
+
+
+@dataclass(slots=True)
+class ProbeResult:
+    """Outcome of a bounded control-plane probe (ENG-1 SDK half).
+
+    ``stage`` names where the probe got to, so ``doctor`` can distinguish "cannot
+    connect" from "connected but the RPC was never answered/rejected".
+    """
+
+    ok: bool
+    stage: str
+    detail: str
+
+
+#: A GetJob on the sentinel id succeeds trivially against a healthy engine, but a
+#: NOT_FOUND is ALSO proof the control plane answered — the probe id never exists.
+def _classify_probe_error(exc: grpc.aio.AioRpcError, timeout_s: float) -> ProbeResult:
+    code = exc.code()
+    detail = exc.details() or ""
+    if code == grpc.StatusCode.NOT_FOUND:
+        return ProbeResult(ok=True, stage="answered", detail="control plane answered (job not found)")
+    if code == grpc.StatusCode.DEADLINE_EXCEEDED:
+        return ProbeResult(
+            ok=False,
+            stage="unanswered",
+            detail=f"connected but no response within {timeout_s}s — the gRPC "
+            "ClientService may not be registered on the engine (see ENG-1)",
+        )
+    if code == grpc.StatusCode.UNIMPLEMENTED:
+        return ProbeResult(
+            ok=False,
+            stage="method-unimplemented",
+            detail="connected but GetJob is not implemented on the gRPC control "
+            "plane — the engine likely serves ClientService over HTTP only (ENG-1)",
+        )
+    if code == grpc.StatusCode.UNAVAILABLE:
+        return ProbeResult(ok=False, stage="dial", detail=f"cannot connect: {detail or code.name}")
+    if code in (grpc.StatusCode.UNAUTHENTICATED, grpc.StatusCode.PERMISSION_DENIED):
+        return ProbeResult(ok=False, stage="auth", detail=f"rejected: {detail or code.name}")
+    return ProbeResult(ok=False, stage=code.name.lower(), detail=detail or code.name)
 
 
 def _ts_to_dt(ts: Timestamp) -> datetime | None:
@@ -247,6 +289,21 @@ class Engine:
     async def get_job(self, job_id: str) -> JobStatus:
         """One atomic ``GetJob`` read (spec 6.5)."""
         return await self._get_status(job_id)
+
+    async def probe(self, *, timeout_s: float = 8.0) -> ProbeResult:
+        """Bounded connectivity probe for ``doctor`` (ENG-1 SDK half).
+
+        Issues a single ``GetJob`` with a hard per-call deadline so a server that
+        accepts the connection but never answers the RPC fails fast with a clear
+        stage instead of hanging forever. Returns a :class:`ProbeResult` naming the
+        failing stage; it never raises for an expected transport/RPC failure.
+        """
+        req = control_plane_pb2.GetJobRequest(tenant=self.tenant, job_id="__doctor_probe__")
+        try:
+            await self._client().GetJob(req, timeout=timeout_s)
+            return ProbeResult(ok=True, stage="answered", detail="control plane answered GetJob")
+        except grpc.aio.AioRpcError as exc:
+            return _classify_probe_error(exc, timeout_s)
 
     async def stream_events(
         self, *, ctx_id: str, reconnect: bool = True

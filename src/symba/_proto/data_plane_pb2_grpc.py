@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . import data_plane_pb2 as simba_dot_v1_dot_data__plane__pb2
+from . import data_plane_pb2 as symba_dot_v1_dot_data__plane__pb2
 
 GRPC_GENERATED_VERSION = '1.82.1'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in simba/v1/data_plane_pb2_grpc.py depends on'
+        + ' but the generated code in symba/v1/data_plane_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -37,44 +37,44 @@ class WorkerServiceStub:
             channel: A grpc.Channel.
         """
         self.Claim = channel.stream_stream(
-                '/simba.v1.WorkerService/Claim',
-                request_serializer=simba_dot_v1_dot_data__plane__pb2.ClaimRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_data__plane__pb2.JobAssignment.FromString,
+                '/symba.v1.WorkerService/Claim',
+                request_serializer=symba_dot_v1_dot_data__plane__pb2.ClaimRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_data__plane__pb2.JobAssignment.FromString,
                 _registered_method=True)
         self.Heartbeat = channel.unary_unary(
-                '/simba.v1.WorkerService/Heartbeat',
-                request_serializer=simba_dot_v1_dot_data__plane__pb2.HeartbeatRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_data__plane__pb2.HeartbeatResponse.FromString,
+                '/symba.v1.WorkerService/Heartbeat',
+                request_serializer=symba_dot_v1_dot_data__plane__pb2.HeartbeatRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_data__plane__pb2.HeartbeatResponse.FromString,
                 _registered_method=True)
         self.Complete = channel.unary_unary(
-                '/simba.v1.WorkerService/Complete',
-                request_serializer=simba_dot_v1_dot_data__plane__pb2.CompleteRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_data__plane__pb2.CompleteResponse.FromString,
+                '/symba.v1.WorkerService/Complete',
+                request_serializer=symba_dot_v1_dot_data__plane__pb2.CompleteRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_data__plane__pb2.CompleteResponse.FromString,
                 _registered_method=True)
         self.Fail = channel.unary_unary(
-                '/simba.v1.WorkerService/Fail',
-                request_serializer=simba_dot_v1_dot_data__plane__pb2.FailRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_data__plane__pb2.FailResponse.FromString,
+                '/symba.v1.WorkerService/Fail',
+                request_serializer=symba_dot_v1_dot_data__plane__pb2.FailRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_data__plane__pb2.FailResponse.FromString,
                 _registered_method=True)
         self.Wait = channel.unary_unary(
-                '/simba.v1.WorkerService/Wait',
-                request_serializer=simba_dot_v1_dot_data__plane__pb2.WaitRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_data__plane__pb2.WaitResponse.FromString,
+                '/symba.v1.WorkerService/Wait',
+                request_serializer=symba_dot_v1_dot_data__plane__pb2.WaitRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_data__plane__pb2.WaitResponse.FromString,
                 _registered_method=True)
         self.PutCheckpoint = channel.unary_unary(
-                '/simba.v1.WorkerService/PutCheckpoint',
-                request_serializer=simba_dot_v1_dot_data__plane__pb2.PutCheckpointRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_data__plane__pb2.PutCheckpointResponse.FromString,
+                '/symba.v1.WorkerService/PutCheckpoint',
+                request_serializer=symba_dot_v1_dot_data__plane__pb2.PutCheckpointRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_data__plane__pb2.PutCheckpointResponse.FromString,
                 _registered_method=True)
         self.GetCheckpoint = channel.unary_unary(
-                '/simba.v1.WorkerService/GetCheckpoint',
-                request_serializer=simba_dot_v1_dot_data__plane__pb2.GetCheckpointRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_data__plane__pb2.GetCheckpointResponse.FromString,
+                '/symba.v1.WorkerService/GetCheckpoint',
+                request_serializer=symba_dot_v1_dot_data__plane__pb2.GetCheckpointRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_data__plane__pb2.GetCheckpointResponse.FromString,
                 _registered_method=True)
         self.GetResult = channel.unary_unary(
-                '/simba.v1.WorkerService/GetResult',
-                request_serializer=simba_dot_v1_dot_data__plane__pb2.GetResultRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_data__plane__pb2.GetResultResponse.FromString,
+                '/symba.v1.WorkerService/GetResult',
+                request_serializer=symba_dot_v1_dot_data__plane__pb2.GetResultRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_data__plane__pb2.GetResultResponse.FromString,
                 _registered_method=True)
 
 
@@ -144,49 +144,49 @@ def add_WorkerServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Claim': grpc.stream_stream_rpc_method_handler(
                     servicer.Claim,
-                    request_deserializer=simba_dot_v1_dot_data__plane__pb2.ClaimRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_data__plane__pb2.JobAssignment.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_data__plane__pb2.ClaimRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_data__plane__pb2.JobAssignment.SerializeToString,
             ),
             'Heartbeat': grpc.unary_unary_rpc_method_handler(
                     servicer.Heartbeat,
-                    request_deserializer=simba_dot_v1_dot_data__plane__pb2.HeartbeatRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_data__plane__pb2.HeartbeatResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_data__plane__pb2.HeartbeatRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_data__plane__pb2.HeartbeatResponse.SerializeToString,
             ),
             'Complete': grpc.unary_unary_rpc_method_handler(
                     servicer.Complete,
-                    request_deserializer=simba_dot_v1_dot_data__plane__pb2.CompleteRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_data__plane__pb2.CompleteResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_data__plane__pb2.CompleteRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_data__plane__pb2.CompleteResponse.SerializeToString,
             ),
             'Fail': grpc.unary_unary_rpc_method_handler(
                     servicer.Fail,
-                    request_deserializer=simba_dot_v1_dot_data__plane__pb2.FailRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_data__plane__pb2.FailResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_data__plane__pb2.FailRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_data__plane__pb2.FailResponse.SerializeToString,
             ),
             'Wait': grpc.unary_unary_rpc_method_handler(
                     servicer.Wait,
-                    request_deserializer=simba_dot_v1_dot_data__plane__pb2.WaitRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_data__plane__pb2.WaitResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_data__plane__pb2.WaitRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_data__plane__pb2.WaitResponse.SerializeToString,
             ),
             'PutCheckpoint': grpc.unary_unary_rpc_method_handler(
                     servicer.PutCheckpoint,
-                    request_deserializer=simba_dot_v1_dot_data__plane__pb2.PutCheckpointRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_data__plane__pb2.PutCheckpointResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_data__plane__pb2.PutCheckpointRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_data__plane__pb2.PutCheckpointResponse.SerializeToString,
             ),
             'GetCheckpoint': grpc.unary_unary_rpc_method_handler(
                     servicer.GetCheckpoint,
-                    request_deserializer=simba_dot_v1_dot_data__plane__pb2.GetCheckpointRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_data__plane__pb2.GetCheckpointResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_data__plane__pb2.GetCheckpointRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_data__plane__pb2.GetCheckpointResponse.SerializeToString,
             ),
             'GetResult': grpc.unary_unary_rpc_method_handler(
                     servicer.GetResult,
-                    request_deserializer=simba_dot_v1_dot_data__plane__pb2.GetResultRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_data__plane__pb2.GetResultResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_data__plane__pb2.GetResultRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_data__plane__pb2.GetResultResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'simba.v1.WorkerService', rpc_method_handlers)
+            'symba.v1.WorkerService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('simba.v1.WorkerService', rpc_method_handlers)
+    server.add_registered_method_handlers('symba.v1.WorkerService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -209,9 +209,9 @@ class WorkerService:
         return grpc.experimental.stream_stream(
             request_iterator,
             target,
-            '/simba.v1.WorkerService/Claim',
-            simba_dot_v1_dot_data__plane__pb2.ClaimRequest.SerializeToString,
-            simba_dot_v1_dot_data__plane__pb2.JobAssignment.FromString,
+            '/symba.v1.WorkerService/Claim',
+            symba_dot_v1_dot_data__plane__pb2.ClaimRequest.SerializeToString,
+            symba_dot_v1_dot_data__plane__pb2.JobAssignment.FromString,
             options,
             channel_credentials,
             insecure,
@@ -236,9 +236,9 @@ class WorkerService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.WorkerService/Heartbeat',
-            simba_dot_v1_dot_data__plane__pb2.HeartbeatRequest.SerializeToString,
-            simba_dot_v1_dot_data__plane__pb2.HeartbeatResponse.FromString,
+            '/symba.v1.WorkerService/Heartbeat',
+            symba_dot_v1_dot_data__plane__pb2.HeartbeatRequest.SerializeToString,
+            symba_dot_v1_dot_data__plane__pb2.HeartbeatResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -263,9 +263,9 @@ class WorkerService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.WorkerService/Complete',
-            simba_dot_v1_dot_data__plane__pb2.CompleteRequest.SerializeToString,
-            simba_dot_v1_dot_data__plane__pb2.CompleteResponse.FromString,
+            '/symba.v1.WorkerService/Complete',
+            symba_dot_v1_dot_data__plane__pb2.CompleteRequest.SerializeToString,
+            symba_dot_v1_dot_data__plane__pb2.CompleteResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -290,9 +290,9 @@ class WorkerService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.WorkerService/Fail',
-            simba_dot_v1_dot_data__plane__pb2.FailRequest.SerializeToString,
-            simba_dot_v1_dot_data__plane__pb2.FailResponse.FromString,
+            '/symba.v1.WorkerService/Fail',
+            symba_dot_v1_dot_data__plane__pb2.FailRequest.SerializeToString,
+            symba_dot_v1_dot_data__plane__pb2.FailResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -317,9 +317,9 @@ class WorkerService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.WorkerService/Wait',
-            simba_dot_v1_dot_data__plane__pb2.WaitRequest.SerializeToString,
-            simba_dot_v1_dot_data__plane__pb2.WaitResponse.FromString,
+            '/symba.v1.WorkerService/Wait',
+            symba_dot_v1_dot_data__plane__pb2.WaitRequest.SerializeToString,
+            symba_dot_v1_dot_data__plane__pb2.WaitResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -344,9 +344,9 @@ class WorkerService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.WorkerService/PutCheckpoint',
-            simba_dot_v1_dot_data__plane__pb2.PutCheckpointRequest.SerializeToString,
-            simba_dot_v1_dot_data__plane__pb2.PutCheckpointResponse.FromString,
+            '/symba.v1.WorkerService/PutCheckpoint',
+            symba_dot_v1_dot_data__plane__pb2.PutCheckpointRequest.SerializeToString,
+            symba_dot_v1_dot_data__plane__pb2.PutCheckpointResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -371,9 +371,9 @@ class WorkerService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.WorkerService/GetCheckpoint',
-            simba_dot_v1_dot_data__plane__pb2.GetCheckpointRequest.SerializeToString,
-            simba_dot_v1_dot_data__plane__pb2.GetCheckpointResponse.FromString,
+            '/symba.v1.WorkerService/GetCheckpoint',
+            symba_dot_v1_dot_data__plane__pb2.GetCheckpointRequest.SerializeToString,
+            symba_dot_v1_dot_data__plane__pb2.GetCheckpointResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -398,9 +398,9 @@ class WorkerService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.WorkerService/GetResult',
-            simba_dot_v1_dot_data__plane__pb2.GetResultRequest.SerializeToString,
-            simba_dot_v1_dot_data__plane__pb2.GetResultResponse.FromString,
+            '/symba.v1.WorkerService/GetResult',
+            symba_dot_v1_dot_data__plane__pb2.GetResultRequest.SerializeToString,
+            symba_dot_v1_dot_data__plane__pb2.GetResultResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -65,6 +65,7 @@ class Worker:
         classify_overrides: list[ClassificationRule] | None = None,
         tls: TlsConfig | None = None,
         settings: SdkSettings | None = None,
+        checkpoint_redis_url: str | None = None,
         load_dotenv: bool = False,
     ) -> None:
         overrides: dict[str, Any] = {}
@@ -75,6 +76,10 @@ class Worker:
             engine_over["token"] = token
         if engine_over:
             overrides["engine"] = engine_over
+        # Explicit checkpoint Redis URL wins over the env aliases so hosts that
+        # configure via their own system (Dynaconf, etc.) need not export a var.
+        if checkpoint_redis_url is not None:
+            overrides["redis"] = {"url": checkpoint_redis_url}
         worker_over: dict[str, Any] = {}
         if tags is not None:
             worker_over["tags"] = tags

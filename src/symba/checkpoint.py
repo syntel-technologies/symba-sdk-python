@@ -35,6 +35,10 @@ _log = get_logger(component="checkpoint")
 #: Redis key TTL for fast-path checkpoints; the engine owns durable retention.
 _REDIS_TTL_S = 7 * 24 * 3600
 
+#: Process-level latch so the "no Redis, using durable path" WARN fires once, not
+#: once per checkpoint (spec 13.1; SDK-5 — make the silent fallback visible).
+_warned_no_redis = False
+
 
 def redis_available() -> bool:
     """True when the optional ``redis`` extra can be imported (spec 3, rule 3)."""
@@ -86,8 +90,28 @@ class CheckpointStore:
         if self._redis is not None:
             await self._redis.set(self._key, raw, ex=_REDIS_TTL_S)
             self._fire_put_checkpoint(raw)
-        else:
-            await self._put_checkpoint(raw)
+            return
+        self._warn_durable_fallback_once()
+        await self._put_checkpoint(raw)
+
+    def _warn_durable_fallback_once(self) -> None:
+        """WARN (once per process) that checkpointing is taking the durable RPC path.
+
+        Without a checkpoint Redis URL the fast path is silently skipped: correct
+        but slower, and any pre-checkpoint work is re-done on a lease reclaim. Make
+        that visible so a missing ``SYMBA_CHECKPOINT_REDIS_URL`` is not a silent
+        perf/correctness cliff (SDK-5).
+        """
+        global _warned_no_redis
+        if _warned_no_redis:
+            return
+        _warned_no_redis = True
+        _log.warning(
+            "checkpoint_durable_path_only",
+            hint="no checkpoint Redis configured (SYMBA_CHECKPOINT_REDIS_URL or "
+            "Worker(checkpoint_redis_url=...)); ctx.checkpoint uses the durable "
+            "PutCheckpoint RPC — correct but slower, and pre-wait work is re-done on reclaim",
+        )
 
     async def read_fast(self) -> dict[str, Any] | None:
         """Redis-first read; the fresher unflushed write may live only here (spec 13.2)."""

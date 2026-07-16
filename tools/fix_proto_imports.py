@@ -1,7 +1,7 @@
 """Rewrite grpcio-tools' absolute imports to package-relative `_proto` imports.
 
-grpcio-tools emits ``from simba.v1 import common_pb2 as ...`` and
-``import simba.v1.common_pb2`` in the generated ``*_pb2.py`` / ``*_pb2_grpc.py``
+grpcio-tools emits ``from symba.v1 import common_pb2 as ...`` and
+``import symba.v1.common_pb2`` in the generated ``*_pb2.py`` / ``*_pb2_grpc.py``
 files, assuming the proto package is importable as a top-level module. The SDK
 vendors the stubs under ``symba._proto`` instead, so every generated file needs
 those references rewritten to ``from . import common_pb2`` form. This is a
@@ -16,10 +16,8 @@ from pathlib import Path
 
 PROTO_DIR = Path(__file__).resolve().parent.parent / "src" / "symba" / "_proto"
 
-# The proto package as declared in the engine's .proto files (``package simba.v1;``).
-# When the engine renames its package to ``symba.v1`` this constant is the only
-# thing that changes.
-PROTO_PKG = "simba.v1"
+# The proto package as declared in the engine's .proto files (``package symba.v1;``).
+PROTO_PKG = "symba.v1"
 
 
 def _rewrite(text: str) -> str:
