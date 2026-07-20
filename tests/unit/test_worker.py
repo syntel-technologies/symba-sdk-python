@@ -88,6 +88,153 @@ async def test_explicit_slots_win():
     assert w._resolve_slots() == 7
 
 
+async def test_explicit_cpu_slots_win():
+    """cpu_slots is honoured verbatim for the forkserver pool size."""
+    w = _worker(slots=200, cpu_slots=6)
+    assert w._settings.worker.cpu_slots == 6
+    assert w._resolve_cpu_slots() == 6
+
+
+async def test_cpu_slots_default_is_bounded_by_cores_not_slots(monkeypatch):
+    """A high io ``slots`` budget must NOT size the cpu pool -- that OOM-kills the
+    host by forking hundreds of model-loading subprocesses. The default caps at
+    the core count."""
+    import symba.worker as worker_mod
+
+    monkeypatch.setattr(worker_mod.os, "cpu_count", lambda: 8)
+    w = _worker(slots=200)  # no explicit cpu_slots
+    w._slots = w._resolve_slots()
+    assert w._resolve_cpu_slots() == 8  # min(200, 8), NOT 200
+
+
+async def test_cpu_slots_default_never_exceeds_slots(monkeypatch):
+    """When there are more cores than io slots, the cpu pool follows slots."""
+    import symba.worker as worker_mod
+
+    monkeypatch.setattr(worker_mod.os, "cpu_count", lambda: 64)
+    w = _worker(slots=4)
+    w._slots = w._resolve_slots()
+    assert w._resolve_cpu_slots() == 4  # min(4, 64)
+
+
+async def test_cpu_executor_sized_by_cpu_slots_not_io_slots(monkeypatch):
+    """End-to-end: booting a worker with a cpu task builds a ProcessExecutor
+    bounded by cpu_slots, never by the (large) io slot budget."""
+    import symba.worker as worker_mod
+
+    monkeypatch.setattr(worker_mod.os, "cpu_count", lambda: 8)
+    w = _worker(slots=200)
+
+    @w.task("chunk", profile=Profile.CPU)
+    def chunk(ctx: Ctx, payload: dict) -> dict:  # sync, cpu profile
+        return {}
+
+    w._boot()
+    cpu_executor = w._executors[Profile.CPU]
+    assert cpu_executor._max_workers == 8  # NOT 200
+    # cpu pool is lazy: nothing forked at boot.
+    assert cpu_executor._spawned == 0
+
+
+async def test_cpu_max_jobs_flows_to_executor():
+    """The recycle cap is threaded from the kwarg into the ProcessExecutor."""
+    w = _worker(slots=200, cpu_slots=4, cpu_max_jobs_per_process=50)
+
+    @w.task("chunk", profile=Profile.CPU)
+    def chunk(ctx: Ctx, payload: dict) -> dict:
+        return {}
+
+    w._boot()
+    assert w._executors[Profile.CPU]._max_jobs_per_process == 50
+
+
+async def test_announce_free_slots_zeroed_by_admission():
+    """The announced slot count is honest local capacity: zeroed while draining or
+    when the admission gate is closed, else the real free-slot count."""
+    w = _worker(slots=5)
+    w._free_slots = 5
+
+    assert w._announce_free_slots() == 5
+    w._admission_ok = False
+    assert w._announce_free_slots() == 0  # admission gate closed
+    w._admission_ok = True
+    w._accepting = False
+    assert w._announce_free_slots() == 0  # draining
+
+
+async def test_admission_loop_transitions_and_forces_reannounce():
+    """The poller flips _admission_ok on transition and pings _slot_changed so the
+    claim stream re-announces the new free_slots."""
+    state = {"ok": False}
+    w = _worker(admission_control=lambda: state["ok"])
+    w._admission_poll_s = 0.01
+
+    w._start_admission_loop()
+    try:
+        await asyncio.sleep(0.05)
+        assert w._admission_ok is False
+        assert w._slot_changed.is_set()
+
+        w._slot_changed.clear()
+        state["ok"] = True
+        await asyncio.sleep(0.05)
+        assert w._admission_ok is True
+        assert w._slot_changed.is_set()  # re-announce forced on recovery too
+    finally:
+        w._stopped.set()
+        await w._stop_background_loops()
+
+
+async def test_admission_loop_fails_open_on_hook_exception():
+    """A raising probe must never wedge the worker: treat as 'accept'."""
+    def boom() -> bool:
+        raise RuntimeError("probe blew up")
+
+    w = _worker(admission_control=boom)
+    w._admission_poll_s = 0.01
+
+    w._start_admission_loop()
+    try:
+        await asyncio.sleep(0.05)
+        assert w._admission_ok is True  # stayed open despite the exception
+    finally:
+        w._stopped.set()
+        await w._stop_background_loops()
+
+
+async def test_admission_loop_not_started_when_hook_absent():
+    """No hook -> no poller task at all (feature entirely inert)."""
+    w = _worker()  # no admission_control
+    w._start_admission_loop()
+    assert w._admission_task is None
+
+
+async def test_liveness_loop_touches_file(tmp_path):
+    """The liveness writer creates + refreshes the file from the event loop."""
+    live = tmp_path / "worker.live"
+    w = _worker(liveness_file=str(live))
+    w._heartbeat_interval_s = 0.01
+
+    assert not live.exists()
+    w._start_liveness_loop()
+    try:
+        await asyncio.sleep(0.05)
+        assert live.exists()
+        first = live.stat().st_mtime_ns
+        await asyncio.sleep(0.05)
+        assert live.stat().st_mtime_ns >= first  # kept fresh
+    finally:
+        w._stopped.set()
+        await w._stop_background_loops()
+
+
+async def test_liveness_loop_not_started_when_unset():
+    """No path -> no writer task (feature inert; healthcheck falls back to pgrep)."""
+    w = _worker()
+    w._start_liveness_loop()
+    assert w._liveness_task is None
+
+
 async def test_slot_release_is_symmetric():
     """Every spawned task releases exactly one slot via the done-callback."""
     w = _worker(slots=2)

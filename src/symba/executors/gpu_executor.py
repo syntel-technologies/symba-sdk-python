@@ -14,6 +14,7 @@ import asyncio
 import multiprocessing as mp
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 from symba.errors import RetryableError, SymbaError
@@ -102,8 +103,13 @@ class GpuExecutor:
         self._lock = asyncio.Lock()
         self._crash_times: list[float] = []
         self._circuit_open = False
+        #: Dedicated pool for the blocking pipe reads (init + `_pump`), so gpu pipe
+        #: reads never contend with the host's default ThreadPoolExecutor. Small:
+        #: gpu jobs are serialized (one in-flight), so 2 threads is ample.
+        self._pump_pool: ThreadPoolExecutor | None = None
 
     async def start(self) -> None:
+        self._pump_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="symba-gpu-pump")
         await self._spawn()
 
     async def _spawn(self) -> None:
@@ -118,7 +124,7 @@ class GpuExecutor:
         self._proc = proc
         self._conn = parent_conn
         loop = asyncio.get_running_loop()
-        init: JobDone = await loop.run_in_executor(None, parent_conn.recv)
+        init: JobDone = await loop.run_in_executor(self._pump_pool, parent_conn.recv)
         if not init.ok:
             raise SymbaError(f"gpu subprocess init failed: {init.error_message}")
         _log.info("gpu_subprocess_warm", pid=proc.pid)
@@ -172,7 +178,7 @@ class GpuExecutor:
 
     async def _pump(self, conn: Connection, ctx: Ctx, loop: asyncio.AbstractEventLoop) -> JobDone:
         while True:
-            frame = await loop.run_in_executor(None, conn.recv)
+            frame = await loop.run_in_executor(self._pump_pool, conn.recv)
             if isinstance(frame, JobDone):
                 return frame
             if isinstance(frame, LogRecord):
@@ -192,6 +198,9 @@ class GpuExecutor:
             self._proc.join(timeout=drain_s)
             if self._proc.is_alive():
                 self._proc.terminate()
+        if self._pump_pool is not None:
+            self._pump_pool.shutdown(wait=False, cancel_futures=True)
+            self._pump_pool = None
         self._proc = None
         self._conn = None
 

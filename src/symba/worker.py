@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import signal
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 
 import grpc
@@ -56,6 +58,8 @@ class Worker:
         token: str | None = None,
         tags: list[str] | None = None,
         slots: int | None = None,
+        cpu_slots: int | None = None,
+        cpu_max_jobs_per_process: int | None = None,
         worker_id: str | None = None,
         strict_schemas: bool = False,
         heartbeat_interval_s: float | None = None,
@@ -63,6 +67,8 @@ class Worker:
         middleware: list[WorkerMiddleware] | None = None,
         shutdown_drain_s: float | None = None,
         classify_overrides: list[ClassificationRule] | None = None,
+        admission_control: Callable[[], bool] | None = None,
+        liveness_file: str | None = None,
         tls: TlsConfig | None = None,
         settings: SdkSettings | None = None,
         checkpoint_redis_url: str | None = None,
@@ -85,6 +91,12 @@ class Worker:
             worker_over["tags"] = tags
         if slots is not None:
             worker_over["slots"] = slots
+        if cpu_slots is not None:
+            worker_over["cpu_slots"] = cpu_slots
+        if cpu_max_jobs_per_process is not None:
+            worker_over["cpu_max_jobs_per_process"] = cpu_max_jobs_per_process
+        if liveness_file is not None:
+            worker_over["liveness_file"] = liveness_file
         if worker_id is not None:
             worker_over["name"] = worker_id
         if strict_schemas:
@@ -102,10 +114,18 @@ class Worker:
         self.labels = labels or {}
         self._extra_tags = list(self._settings.worker.tags)
         self._explicit_slots = self._settings.worker.slots
+        self._explicit_cpu_slots = self._settings.worker.cpu_slots
+        self._explicit_cpu_max_jobs = self._settings.worker.cpu_max_jobs_per_process
         self._strict_schemas = self._settings.worker.strict_schemas
         self._heartbeat_interval_s = self._settings.worker.heartbeat_interval_s
         self._drain_timeout_s = self._settings.worker.drain_timeout_s
         self._classify_overrides = classify_overrides or []
+        # Optional, opt-in robustness hooks. The SDK ships NO logic behind them:
+        # `admission_control` is a host-supplied probe (True == accept work), and
+        # `liveness_file` is just a path the loop touches. Both inert when unset.
+        self._admission_control = admission_control
+        self._admission_poll_s = self._settings.worker.admission_poll_s
+        self._liveness_file = self._settings.worker.liveness_file
 
         self.registry = TaskRegistry()
         self._transport = Transport(self._settings.engine, self._settings.grpc, tls=tls)
@@ -121,6 +141,12 @@ class Worker:
         self._running: set[asyncio.Task[Any]] = set()
         self._running_task_names: dict[asyncio.Task[Any], str] = {}
         self._accepting = True
+        #: Local backpressure gate driven by ``admission_control`` (spec 8.4). When
+        #: False the worker announces ``free_slots=0`` (honest local capacity) but
+        #: keeps its claim stream open, so it resumes the moment the host recovers.
+        self._admission_ok = True
+        self._admission_task: asyncio.Task[None] | None = None
+        self._liveness_task: asyncio.Task[None] | None = None
         self._slots = 0
         self._free_slots = 0
         self._slot_changed = asyncio.Event()
@@ -196,6 +222,20 @@ class Worker:
             return 4
         return 100
 
+    def _resolve_cpu_slots(self) -> int:
+        """Size the cpu forkserver pool (spec 11.1), bounded by CPU cores.
+
+        The cpu pool must NOT inherit ``slots``: ``slots`` is the io concurrency
+        budget (await-bound, routinely set to the hundreds), but every cpu slot
+        is a real OS subprocess that may load model weights. Forking ``slots``
+        (e.g. 200) such processes OOM-kills the host. An explicit
+        ``worker.cpu_slots`` always wins; otherwise default to the core count,
+        never above the overall slot budget.
+        """
+        if self._explicit_cpu_slots is not None:
+            return self._explicit_cpu_slots
+        return max(1, min(self._slots, os.cpu_count() or 1))
+
     def _build_profile_executors(self) -> None:
         """Add cpu/gpu executors only for the profiles this worker actually registers."""
         profiles = self.registry.profiles()
@@ -206,7 +246,9 @@ class Worker:
                 if self.registry.get(name).profile == Profile.CPU  # type: ignore[union-attr]
             }
             self._executors[Profile.CPU] = ProcessExecutor(
-                max_workers=self._slots, handlers=cpu_handlers
+                max_workers=self._resolve_cpu_slots(),
+                handlers=cpu_handlers,
+                max_jobs_per_process=self._explicit_cpu_max_jobs,
             )
         if Profile.GPU in profiles:
             gpu_handlers = {
@@ -294,10 +336,13 @@ class Worker:
         self._boot()
         await self._start_executors()
         self._start_watchdog()
+        self._start_admission_loop()
+        self._start_liveness_loop()
         self._install_signal_handlers()
         try:
             await self._claim_loop()
         finally:
+            await self._stop_background_loops()
             await self._drain()
             await self._stop_watchdog()
             await self._stop_executors()
@@ -335,6 +380,79 @@ class Worker:
         if self._watchdog is not None:
             await self._watchdog.stop()
             self._watchdog = None
+
+    # ------------------------------------------------- opt-in background loops
+    def _start_admission_loop(self) -> None:
+        """Start the admission poller only when a host hook is supplied (spec 8.4)."""
+        if self._admission_control is None:
+            return
+        self._admission_task = asyncio.ensure_future(self._admission_loop())
+
+    async def _admission_loop(self) -> None:
+        """Poll the host admission hook; gate claims on local resource pressure.
+
+        The hook runs in a thread (a slow probe must never block the claim loop)
+        and is FAIL-OPEN: any exception is logged and treated as 'accept', so a
+        broken probe can never wedge the worker into announcing zero slots forever.
+        Only a True<->False transition re-announces (one ``_slot_changed`` set), so
+        this never thrashes the claim stream.
+        """
+        assert self._admission_control is not None
+        loop = asyncio.get_running_loop()
+        while not self._stopped.is_set():
+            try:
+                ok = await loop.run_in_executor(None, self._admission_control)
+            except Exception as exc:  # fail-open: a bad probe must never wedge the worker
+                _log.warning("[worker] admission_probe_failed", error=str(exc))
+                ok = True
+            if ok != self._admission_ok:
+                self._admission_ok = ok
+                self._slot_changed.set()  # force a re-announce with the new free_slots
+                if ok:
+                    _log.info("[worker] admission_resumed", worker_id=self.worker_id)
+                else:
+                    _log.warning(
+                        "[worker] admission_blocked",
+                        worker_id=self.worker_id,
+                        hint="local resource watermark exceeded; announcing free_slots=0",
+                    )
+            await asyncio.sleep(self._admission_poll_s)
+
+    def _start_liveness_loop(self) -> None:
+        """Start the liveness-file writer only when a path is configured (spec 11.5)."""
+        if not self._liveness_file:
+            return
+        self._liveness_task = asyncio.ensure_future(self._liveness_loop())
+
+    async def _liveness_loop(self) -> None:
+        """Touch the liveness file FROM the event loop every heartbeat.
+
+        A wedged loop (e.g. a sync call blocking the claim loop) cannot run this, so
+        the file's mtime goes stale -- which an external healthcheck reads as
+        unhealthy. The SDK ships no probe; the host owns the freshness threshold.
+        """
+        assert self._liveness_file is not None
+        path = Path(self._liveness_file)
+        while not self._stopped.is_set():
+            try:
+                # ASYNC240: the touch MUST run ON the loop -- that is exactly what
+                # proves the loop is alive. It is a microsecond tmpfs stat+utime,
+                # not a real blocking wait, so keeping it inline is intentional.
+                path.touch()  # noqa: ASYNC240
+            except OSError as exc:
+                _log.warning("[worker] liveness_touch_failed", path=str(path), error=str(exc))
+            await asyncio.sleep(self._heartbeat_interval_s)
+
+    async def _stop_background_loops(self) -> None:
+        """Cancel the admission + liveness loops (idempotent; safe if never started)."""
+        for task in (self._admission_task, self._liveness_task):
+            if task is None:
+                continue
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        self._admission_task = None
+        self._liveness_task = None
 
     async def _open_checkpoint_redis(self) -> None:
         """Open the shared checkpoint Redis client if a URL is configured (spec 13.1)."""
@@ -390,7 +508,7 @@ class Worker:
                 yield data_plane_pb2.ClaimRequest(
                     worker_id=self.worker_id,
                     tags=tags,
-                    free_slots=self._free_slots if self._accepting else 0,
+                    free_slots=self._announce_free_slots(),
                     sdk_version=SDK_VERSION_STRING,
                     labels=self.labels,
                 )
@@ -402,6 +520,18 @@ class Worker:
             if self._stopped.is_set():
                 break
             self._handle_assignment(assignment)
+
+    def _announce_free_slots(self) -> int:
+        """Slots to advertise to the engine: honest LOCAL capacity.
+
+        Zeroed while draining (``_accepting`` false) or when the optional admission
+        hook reports this box is over its resource watermark (``_admission_ok``
+        false). The claim stream stays open either way, so the worker resumes the
+        moment capacity returns.
+        """
+        if not self._accepting or not self._admission_ok:
+            return 0
+        return self._free_slots
 
     # -------------------------------------------------------- slot accounting
     def _handle_assignment(self, assignment: data_plane_pb2.JobAssignment) -> None:

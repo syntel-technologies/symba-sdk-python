@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import sys
 
 import pytest
@@ -122,6 +123,85 @@ async def test_cpu_retryable_error_preserved():
         assert ei.value.retryable is True
     finally:
         await ex.stop(1.0)
+
+
+@_skip_win
+async def test_pool_is_lazy_no_processes_until_first_job():
+    """The pool must NOT fork all max_workers eagerly (that thundering herd is
+    what OOM-kills the host). Nothing is spawned until a job actually runs."""
+    ex = _executor(200)
+    await ex.start()
+    try:
+        assert ex._spawned == 0  # 200 processes NOT forked at start
+        ctx = _ctx(FakeWorkerStub(), FakeControlStub())
+        await ex.run(_task("double", H.double), ctx, {"n": 1})
+        assert ex._spawned == 1  # exactly one process for one job
+        # a second sequential job reuses the warm process, does not grow.
+        await ex.run(_task("double", H.double), ctx, {"n": 2})
+        assert ex._spawned == 1
+    finally:
+        await ex.stop(1.0)
+
+
+@_skip_win
+async def test_pool_never_exceeds_max_workers_under_concurrency():
+    """Concurrent demand grows the pool, but never past max_workers."""
+    ex = _executor(2)
+    await ex.start()
+    try:
+        ctx = _ctx(FakeWorkerStub(), FakeControlStub())
+        results = await asyncio.gather(
+            *(ex.run(_task("double", H.double), ctx, {"n": i}) for i in range(6))
+        )
+        assert sorted(r["doubled"] for r in results) == [0, 2, 4, 6, 8, 10]
+        assert ex._spawned <= 2  # capped at max_workers regardless of demand
+    finally:
+        await ex.stop(1.0)
+
+
+@_skip_win
+async def test_recycle_replaces_process_after_cap():
+    """Pool hygiene: after `max_jobs_per_process` jobs the worn process is retired
+    and replaced (a fresh pid), while `_spawned` stays net-zero (one down, one up)."""
+    ex = ProcessExecutor(max_workers=1, handlers=_HANDLERS, max_jobs_per_process=2)
+    try:
+        ctx = _ctx(FakeWorkerStub(), FakeControlStub())
+        pids = [
+            (await ex.run(_task("double", H.double), ctx, {"n": i}))["pid"] for i in range(3)
+        ]
+        # jobs 1+2 share the original process; job 3 lands on the recycled one.
+        assert pids[0] == pids[1]
+        assert pids[2] != pids[0]
+        # recycling replaces in place: never grows the live process count.
+        assert ex._spawned == 1
+    finally:
+        await ex.stop(1.0)
+
+
+@_skip_win
+async def test_recycle_disabled_by_default():
+    """With no cap the warm process is reused indefinitely (same pid)."""
+    ex = _executor(1)  # no max_jobs_per_process
+    try:
+        ctx = _ctx(FakeWorkerStub(), FakeControlStub())
+        pids = {
+            (await ex.run(_task("double", H.double), ctx, {"n": i}))["pid"] for i in range(4)
+        }
+        assert len(pids) == 1  # one process served every job
+    finally:
+        await ex.stop(1.0)
+
+
+@_skip_win
+async def test_pump_pool_started_and_stopped():
+    """The dedicated pipe-read pool spins up with the pool and tears down on stop."""
+    ex = _executor(1)
+    assert ex._pump_pool is None  # lazy: nothing before the first job
+    ctx = _ctx(FakeWorkerStub(), FakeControlStub())
+    await ex.run(_task("double", H.double), ctx, {"n": 1})
+    assert ex._pump_pool is not None
+    await ex.stop(1.0)
+    assert ex._pump_pool is None
 
 
 @_skip_win
