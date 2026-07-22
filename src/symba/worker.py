@@ -169,7 +169,15 @@ class Worker:
         input_schema: Any = None,
         output_schema: Any = None,
     ) -> HandlerDecorator:
-        """Register a handler (spec 8.2). Returns the function unchanged."""
+        """Register a handler (spec 8.2). Returns the function unchanged.
+
+        A task's ``lease_ttl_s`` MUST be >= its own ``timeout_s`` (with heartbeat
+        margin); otherwise the lease can lapse mid-run and the engine dispatches a
+        duplicate. io tasks inherit the engine default lease (~60s), so set
+        ``lease_ttl_s`` explicitly on any io task expected to run longer than a few
+        heartbeats — boot validation raises ``ConfigError`` for a long ``timeout_s``
+        left under the short engine-default lease.
+        """
 
         def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
             self.registry.register(

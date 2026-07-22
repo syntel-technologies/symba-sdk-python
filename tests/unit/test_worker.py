@@ -78,6 +78,40 @@ async def test_boot_rejects_zero_tasks():
         w.registry.validate(strict_schemas=False, heartbeat_interval_s=15.0)
 
 
+async def test_boot_rejects_long_io_task_without_explicit_lease():
+    """SDK-7: a long io timeout under the engine-default (~60s) lease fails fast."""
+    w = _worker()
+
+    @w.task("parse", profile=Profile.IO, timeout_s=1800)
+    async def parse(ctx: Ctx, payload: dict) -> dict:
+        return payload
+
+    with pytest.raises(ConfigError, match="lease"):
+        w.registry.validate(strict_schemas=False, heartbeat_interval_s=15.0)
+
+
+async def test_long_io_task_with_explicit_lease_is_ok():
+    """SDK-7: setting lease_ttl_s >= timeout_s clears the boot check."""
+    w = _worker()
+
+    @w.task("parse", profile=Profile.IO, timeout_s=1800, lease_ttl_s=1800)
+    async def parse(ctx: Ctx, payload: dict) -> dict:
+        return payload
+
+    w.registry.validate(strict_schemas=False, heartbeat_interval_s=15.0)
+
+
+async def test_short_io_task_without_lease_is_ok():
+    """SDK-7: a normal io task (no timeout_s) is not a false positive."""
+    w = _worker()
+
+    @w.task("quick", profile=Profile.IO)
+    async def quick(ctx: Ctx, payload: dict) -> dict:
+        return payload
+
+    w.registry.validate(strict_schemas=False, heartbeat_interval_s=15.0)
+
+
 async def test_explicit_slots_win():
     w = _worker(slots=7)
 

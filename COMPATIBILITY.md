@@ -25,6 +25,13 @@ means an SDK works with any engine whose proto **major** matches, and vice-versa
 Until `1.0`, both projects are pre-release: patch/minor versions may move together. Pin an exact
 engine and SDK pair in production and upgrade them in lockstep when the proto version changes.
 
+## Engine defaults mirrored in the SDK
+
+The io profile defers its `timeout_s`/`lease_ttl_s` to the engine `[defaults]`. Boot validation
+needs to know the engine's io lease to catch a long `timeout_s` running under a short lease, so the
+SDK mirrors it as `symba.profiles.ENGINE_DEFAULT_IO_LEASE_TTL_S` (currently `60`). Keep this value
+in lockstep with the engine's `[defaults]` io lease whenever the engine changes it.
+
 ## Version handshake
 
 On connect, the worker announces its `__engine_protocol__`. If the engine rejects it as

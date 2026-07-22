@@ -91,6 +91,8 @@ you'd otherwise re-implement per project:
   `SIGTERM→SIGKILL` on `cpu`/`gpu`.
 - **Retry classification without HTTP imports** — transient OS/timeout/connection errors and
   `httpx`/`aiohttp` status codes are matched by qualified class name, so the SDK stays dependency-light.
+  Any exception whose class is named `TimeoutError` (e.g. `sqlalchemy.exc.TimeoutError`, which does
+  *not* subclass the builtin) is treated as retryable, regardless of its module.
 - **Checkpoints that skip paid work on retry** — an optional Redis fast path in front of the
   engine's durable `PutCheckpoint`.
 - **A real test engine** — `SymbaTest` runs your handlers through the *actual* dispatch pipeline
@@ -112,7 +114,10 @@ you'd otherwise re-implement per project:
   `WAITING` (releasing its slot) and resumes it when someone calls `engine.signal(key, payload)`.
 - 🧵 **Execution profiles** — `io` (asyncio, the default), `cpu` (a `forkserver` process pool),
   and `gpu` (one warm subprocess with `@worker.on_gpu_init` hooks and a crash circuit breaker) —
-  each with its own timeout/lease defaults, all sharing one `Ctx` surface.
+  each with its own timeout/lease defaults, all sharing one `Ctx` surface. A task's `lease_ttl_s`
+  must be `>= timeout_s` (with heartbeat margin); io tasks inherit the engine default lease (~60s),
+  so set `lease_ttl_s` explicitly on any io task expected to run longer than a few heartbeats —
+  otherwise boot validation fails fast to stop a mid-run lease lapse from causing a duplicate dispatch.
 - 🔁 **Retries & a real error taxonomy** — `RetryableError`/`FatalError`/`RateLimitedError` you
   raise, plus a full SDK exception hierarchy (`JobFailed`, `JobCancelled`, `StaleLease`, …) with
   `error_history` on dead jobs.
