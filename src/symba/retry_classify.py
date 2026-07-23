@@ -119,6 +119,15 @@ CLASSIFICATION_RULES: list[ClassificationRule] = [
         retryable=True,
     ),
     ClassificationRule(
+        # A urllib3/http.client body cut off mid-transfer (ProtocolError /
+        # IncompleteRead). Idempotent GETs are safe to re-issue, so this is a
+        # transient transport failure, not permanent. Match by class name so the
+        # SDK does not import urllib3 (mirrors _HTTP_MODULE_PREFIXES policy).
+        "incomplete_body_read",
+        lambda e: type(e).__name__ in {"ProtocolError", "IncompleteRead"},
+        retryable=True,
+    ),
+    ClassificationRule(
         "programming_or_data_error",
         lambda e: (
             isinstance(e, (KeyError, TypeError, ValueError, AttributeError))

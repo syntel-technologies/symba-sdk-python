@@ -47,3 +47,33 @@ class _HttpBadRequest(Exception):
 def test_http_fatal_status_stays_fatal():
     """A 4xx fatal HTTP status is still non-retryable (precedence preserved)."""
     assert classify(_HttpBadRequest()) is False
+
+
+# Mimic ``urllib3.exceptions.ProtocolError`` / ``IncompleteRead``: matched by
+# class name so the SDK never imports urllib3 (same policy as _LibTimeoutError).
+class _ProtocolError(Exception):
+    """A body cut off mid-transfer (urllib3.exceptions.ProtocolError shape)."""
+
+
+_ProtocolError.__name__ = "ProtocolError"
+_ProtocolError.__qualname__ = "ProtocolError"
+
+
+class _IncompleteRead(Exception):
+    """A short read of an idempotent GET (urllib3.exceptions.IncompleteRead)."""
+
+
+_IncompleteRead.__name__ = "IncompleteRead"
+_IncompleteRead.__qualname__ = "IncompleteRead"
+
+
+def test_protocol_error_is_retryable():
+    """A urllib3 ProtocolError (mid-body truncation of an idempotent GET) is a
+    transient transport failure and must be retryable (matched by name)."""
+    exc = _ProtocolError("Connection broken: IncompleteRead(8152536 bytes read)")
+    assert classify(exc) is True
+
+
+def test_incomplete_read_is_retryable():
+    """A urllib3 IncompleteRead (short body) is retryable (matched by name)."""
+    assert classify(_IncompleteRead("8152536 bytes read, 100 more expected")) is True
