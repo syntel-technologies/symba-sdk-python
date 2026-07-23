@@ -126,6 +126,57 @@ class SyncGate:
         return f"<SyncGate {self.id} children={len(self.children)}>"
 
 
+class SyncAdmin:
+    """Blocking facade over :class:`~symba.admin.AdminClient` (spec 6.7, 21).
+
+    The RFC's iKnowledge worker registers its ``graph-reconcile-tick`` schedule at
+    startup from sync ``run_sync`` task bodies; this wrapper lets that happen without
+    hand-rolling an event loop. Thin: every method is ``self._loop.run(...)`` over the
+    real async admin surface, zero logic duplication.
+    """
+
+    def __init__(self, loop: _LoopThread, admin: Any) -> None:
+        self._loop = loop
+        self._admin = admin
+
+    def upsert_cron(
+        self,
+        schedule_id: str,
+        cron_expr: str,
+        task_name: str,
+        payload: dict[str, Any] | None = None,
+        enabled: bool = True,
+    ) -> Any:
+        _guard_not_in_loop()
+        return self._loop.run(
+            self._admin.upsert_cron(schedule_id, cron_expr, task_name, payload, enabled)
+        )
+
+    def delete_cron(self, schedule_id: str) -> bool:
+        _guard_not_in_loop()
+        return self._loop.run(self._admin.delete_cron(schedule_id))
+
+    def list_cron(self) -> list[Any]:
+        _guard_not_in_loop()
+        return self._loop.run(self._admin.list_cron())
+
+    def set_cron_enabled(self, schedule_id: str, enabled: bool) -> Any:
+        _guard_not_in_loop()
+        return self._loop.run(self._admin.set_cron_enabled(schedule_id, enabled))
+
+    def upsert_rate_class(self, name: str, capacity: float, refill_per_s: float) -> Any:
+        _guard_not_in_loop()
+        return self._loop.run(self._admin.upsert_rate_class(name, capacity, refill_per_s))
+
+    def list_rate_classes(self) -> list[Any]:
+        _guard_not_in_loop()
+        return self._loop.run(self._admin.list_rate_classes())
+
+    def list_workers(self) -> list[Any]:
+        _guard_not_in_loop()
+        return self._loop.run(self._admin.list_workers())
+
+
 class SyncEngine:
     """Blocking wrapper around :class:`~symba.engine.Engine` (spec 21)."""
 
@@ -151,7 +202,15 @@ class SyncEngine:
             load_dotenv=load_dotenv,
         )
         self.tenant = tenant
+        self._admin: SyncAdmin | None = None
         atexit.register(self.close)
+
+    @property
+    def admin(self) -> SyncAdmin:
+        """Blocking ``AdminService`` facade (cron + rate-class + fleet ops)."""
+        if self._admin is None:
+            self._admin = SyncAdmin(self._loop, self._engine.admin)
+        return self._admin
 
     def submit(self, task: str, payload: Any = None, **kwargs: Any) -> SyncJobHandle:
         _guard_not_in_loop()
@@ -246,4 +305,4 @@ class SyncEngine:
         self.close()
 
 
-__all__ = ["SyncEngine", "SyncJobHandle", "SyncGate"]
+__all__ = ["SyncEngine", "SyncJobHandle", "SyncGate", "SyncAdmin"]

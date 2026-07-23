@@ -50,8 +50,10 @@ class CronSchedule(_message.Message):
     def __init__(self, schedule_id: _Optional[str] = ..., cron_expr: _Optional[str] = ..., task_name: _Optional[str] = ..., payload_json: _Optional[bytes] = ..., tenant: _Optional[str] = ..., enabled: _Optional[bool] = ..., last_fire: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., next_fire: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class ListCronRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("tenant",)
+    TENANT_FIELD_NUMBER: _ClassVar[int]
+    tenant: str
+    def __init__(self, tenant: _Optional[str] = ...) -> None: ...
 
 class ListCronResponse(_message.Message):
     __slots__ = ("schedules",)
@@ -60,12 +62,28 @@ class ListCronResponse(_message.Message):
     def __init__(self, schedules: _Optional[_Iterable[_Union[CronSchedule, _Mapping]]] = ...) -> None: ...
 
 class SetCronEnabledRequest(_message.Message):
-    __slots__ = ("schedule_id", "enabled")
+    __slots__ = ("schedule_id", "enabled", "tenant")
     SCHEDULE_ID_FIELD_NUMBER: _ClassVar[int]
     ENABLED_FIELD_NUMBER: _ClassVar[int]
+    TENANT_FIELD_NUMBER: _ClassVar[int]
     schedule_id: str
     enabled: bool
-    def __init__(self, schedule_id: _Optional[str] = ..., enabled: _Optional[bool] = ...) -> None: ...
+    tenant: str
+    def __init__(self, schedule_id: _Optional[str] = ..., enabled: _Optional[bool] = ..., tenant: _Optional[str] = ...) -> None: ...
+
+class DeleteCronRequest(_message.Message):
+    __slots__ = ("schedule_id", "tenant")
+    SCHEDULE_ID_FIELD_NUMBER: _ClassVar[int]
+    TENANT_FIELD_NUMBER: _ClassVar[int]
+    schedule_id: str
+    tenant: str
+    def __init__(self, schedule_id: _Optional[str] = ..., tenant: _Optional[str] = ...) -> None: ...
+
+class DeleteCronResponse(_message.Message):
+    __slots__ = ("deleted",)
+    DELETED_FIELD_NUMBER: _ClassVar[int]
+    deleted: bool
+    def __init__(self, deleted: _Optional[bool] = ...) -> None: ...
 
 class Worker(_message.Message):
     __slots__ = ("worker_id", "tags", "labels", "slots", "slots_busy", "last_seen", "stale")

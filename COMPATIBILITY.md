@@ -18,9 +18,10 @@ means an SDK works with any engine whose proto **major** matches, and vice-versa
 
 | SDK (`symba`) | Engine proto (`__engine_protocol__`) | Engine server | Status |
 |---|---|---|---|
-| `0.1.x` | `v0.1.0` | `0.1.x` | ✅ Supported — current pre-1.0 line. |
-| `0.1.x` | `v0.1.0` | `0.2.x` (future, same proto major) | ✅ Forward-compatible — unknown fields ignored. |
-| `0.1.x` | `v0.1.0` | `>= 1.0` if proto major bumps | ⚠️ Requires an SDK matching the new proto major. |
+| `0.1.x` | `v0.2.0` | `0.1.x`+ | ✅ Supported — current pre-1.0 line (adds AdminService cron upsert/delete). |
+| `0.1.x` | `v0.1.0` | `0.1.x` | ✅ Backward-compatible — the new admin cron RPCs are simply unavailable. |
+| `0.1.x` | `v0.2.0` | future, same proto major | ✅ Forward-compatible — unknown fields ignored. |
+| `0.1.x` | `v0.2.0` | `>= 1.0` if proto major bumps | ⚠️ Requires an SDK matching the new proto major. |
 
 Until `1.0`, both projects are pre-release: patch/minor versions may move together. Pin an exact
 engine and SDK pair in production and upgrade them in lockstep when the proto version changes.

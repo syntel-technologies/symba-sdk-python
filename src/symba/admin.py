@@ -6,6 +6,7 @@ in M7; the class exists here so ``Engine.admin`` resolves.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import grpc
@@ -43,12 +44,43 @@ class AdminClient:
         return await self._call(self._client().UpsertRateClass, req)
 
     async def list_cron(self) -> list[admin_pb2.CronSchedule]:
-        resp = await self._call(self._client().ListCronSchedules, admin_pb2.ListCronRequest())
+        req = admin_pb2.ListCronRequest(tenant=self._tenant)
+        resp = await self._call(self._client().ListCronSchedules, req)
         return list(resp.schedules)
 
     async def set_cron_enabled(self, schedule_id: str, enabled: bool) -> admin_pb2.CronSchedule:
-        req = admin_pb2.SetCronEnabledRequest(schedule_id=schedule_id, enabled=enabled)
+        req = admin_pb2.SetCronEnabledRequest(schedule_id=schedule_id, enabled=enabled, tenant=self._tenant)
         return await self._call(self._client().SetCronEnabled, req)
+
+    async def upsert_cron(
+        self,
+        schedule_id: str,
+        cron_expr: str,
+        task_name: str,
+        payload: dict[str, Any] | None = None,
+        enabled: bool = True,
+    ) -> admin_pb2.CronSchedule:
+        """Create or update a cron schedule (idempotent). Returns the persisted row.
+
+        Typical use is an at-startup, idempotent registration of an application's own
+        schedule (e.g. a reconcile tick). A changed ``cron_expr`` resets the fire
+        window engine-side; an unrelated edit leaves timing untouched.
+        """
+        req = admin_pb2.CronSchedule(
+            schedule_id=schedule_id,
+            cron_expr=cron_expr,
+            task_name=task_name,
+            payload_json=json.dumps(payload or {}).encode(),
+            tenant=self._tenant,
+            enabled=enabled,
+        )
+        return await self._call(self._client().UpsertCronSchedule, req)
+
+    async def delete_cron(self, schedule_id: str) -> bool:
+        """Delete a cron schedule. Returns True; raises NotFound for an unknown id."""
+        req = admin_pb2.DeleteCronRequest(schedule_id=schedule_id, tenant=self._tenant)
+        resp = await self._call(self._client().DeleteCronSchedule, req)
+        return resp.deleted
 
     async def list_workers(self) -> list[admin_pb2.Worker]:
         resp = await self._call(self._client().ListWorkers, admin_pb2.ListWorkersRequest())

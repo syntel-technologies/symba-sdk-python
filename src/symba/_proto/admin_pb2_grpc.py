@@ -61,6 +61,11 @@ class AdminServiceStub:
                 request_serializer=symba_dot_v1_dot_admin__pb2.SetCronEnabledRequest.SerializeToString,
                 response_deserializer=symba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
                 _registered_method=True)
+        self.DeleteCronSchedule = channel.unary_unary(
+                '/symba.v1.AdminService/DeleteCronSchedule',
+                request_serializer=symba_dot_v1_dot_admin__pb2.DeleteCronRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_admin__pb2.DeleteCronResponse.FromString,
+                _registered_method=True)
         self.ListWorkers = channel.unary_unary(
                 '/symba.v1.AdminService/ListWorkers',
                 request_serializer=symba_dot_v1_dot_admin__pb2.ListWorkersRequest.SerializeToString,
@@ -103,6 +108,12 @@ class AdminServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DeleteCronSchedule(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ListWorkers(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -136,6 +147,11 @@ def add_AdminServiceServicer_to_server(servicer, server):
                     servicer.SetCronEnabled,
                     request_deserializer=symba_dot_v1_dot_admin__pb2.SetCronEnabledRequest.FromString,
                     response_serializer=symba_dot_v1_dot_admin__pb2.CronSchedule.SerializeToString,
+            ),
+            'DeleteCronSchedule': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteCronSchedule,
+                    request_deserializer=symba_dot_v1_dot_admin__pb2.DeleteCronRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_admin__pb2.DeleteCronResponse.SerializeToString,
             ),
             'ListWorkers': grpc.unary_unary_rpc_method_handler(
                     servicer.ListWorkers,
@@ -280,6 +296,33 @@ class AdminService:
             '/symba.v1.AdminService/SetCronEnabled',
             symba_dot_v1_dot_admin__pb2.SetCronEnabledRequest.SerializeToString,
             symba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteCronSchedule(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/symba.v1.AdminService/DeleteCronSchedule',
+            symba_dot_v1_dot_admin__pb2.DeleteCronRequest.SerializeToString,
+            symba_dot_v1_dot_admin__pb2.DeleteCronResponse.FromString,
             options,
             channel_credentials,
             insecure,

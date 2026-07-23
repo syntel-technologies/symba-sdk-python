@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14symba/v1/admin.proto\x12\x08symba.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"A\n\tRateClass\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08\x63\x61pacity\x18\x02 \x01(\x01\x12\x14\n\x0crefill_per_s\x18\x03 \x01(\x01\"\x18\n\x16ListRateClassesRequest\"?\n\x17ListRateClassesResponse\x12$\n\x07\x63lasses\x18\x01 \x03(\x0b\x32\x13.symba.v1.RateClass\"\xde\x01\n\x0c\x43ronSchedule\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x11\n\tcron_expr\x18\x02 \x01(\t\x12\x11\n\ttask_name\x18\x03 \x01(\t\x12\x14\n\x0cpayload_json\x18\x04 \x01(\x0c\x12\x0e\n\x06tenant\x18\x05 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x06 \x01(\x08\x12-\n\tlast_fire\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12-\n\tnext_fire\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"\x11\n\x0fListCronRequest\"=\n\x10ListCronResponse\x12)\n\tschedules\x18\x01 \x03(\x0b\x32\x16.symba.v1.CronSchedule\"=\n\x15SetCronEnabledRequest\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x02 \x01(\x08\"\xe7\x01\n\x06Worker\x12\x11\n\tworker_id\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t\x12,\n\x06labels\x18\x03 \x03(\x0b\x32\x1c.symba.v1.Worker.LabelsEntry\x12\r\n\x05slots\x18\x04 \x01(\r\x12\x12\n\nslots_busy\x18\x05 \x01(\r\x12-\n\tlast_seen\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05stale\x18\x07 \x01(\x08\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x14\n\x12ListWorkersRequest\"8\n\x13ListWorkersResponse\x12!\n\x07workers\x18\x01 \x03(\x0b\x32\x10.symba.v1.Worker2\xcc\x03\n\x0c\x41\x64minService\x12V\n\x0fListRateClasses\x12 .symba.v1.ListRateClassesRequest\x1a!.symba.v1.ListRateClassesResponse\x12;\n\x0fUpsertRateClass\x12\x13.symba.v1.RateClass\x1a\x13.symba.v1.RateClass\x12J\n\x11ListCronSchedules\x12\x19.symba.v1.ListCronRequest\x1a\x1a.symba.v1.ListCronResponse\x12\x44\n\x12UpsertCronSchedule\x12\x16.symba.v1.CronSchedule\x1a\x16.symba.v1.CronSchedule\x12I\n\x0eSetCronEnabled\x12\x1f.symba.v1.SetCronEnabledRequest\x1a\x16.symba.v1.CronSchedule\x12J\n\x0bListWorkers\x12\x1c.symba.v1.ListWorkersRequest\x1a\x1d.symba.v1.ListWorkersResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x14symba/v1/admin.proto\x12\x08symba.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"A\n\tRateClass\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08\x63\x61pacity\x18\x02 \x01(\x01\x12\x14\n\x0crefill_per_s\x18\x03 \x01(\x01\"\x18\n\x16ListRateClassesRequest\"?\n\x17ListRateClassesResponse\x12$\n\x07\x63lasses\x18\x01 \x03(\x0b\x32\x13.symba.v1.RateClass\"\xde\x01\n\x0c\x43ronSchedule\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x11\n\tcron_expr\x18\x02 \x01(\t\x12\x11\n\ttask_name\x18\x03 \x01(\t\x12\x14\n\x0cpayload_json\x18\x04 \x01(\x0c\x12\x0e\n\x06tenant\x18\x05 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x06 \x01(\x08\x12-\n\tlast_fire\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12-\n\tnext_fire\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\"!\n\x0fListCronRequest\x12\x0e\n\x06tenant\x18\x01 \x01(\t\"=\n\x10ListCronResponse\x12)\n\tschedules\x18\x01 \x03(\x0b\x32\x16.symba.v1.CronSchedule\"M\n\x15SetCronEnabledRequest\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x0f\n\x07\x65nabled\x18\x02 \x01(\x08\x12\x0e\n\x06tenant\x18\x03 \x01(\t\"8\n\x11\x44\x65leteCronRequest\x12\x13\n\x0bschedule_id\x18\x01 \x01(\t\x12\x0e\n\x06tenant\x18\x02 \x01(\t\"%\n\x12\x44\x65leteCronResponse\x12\x0f\n\x07\x64\x65leted\x18\x01 \x01(\x08\"\xe7\x01\n\x06Worker\x12\x11\n\tworker_id\x18\x01 \x01(\t\x12\x0c\n\x04tags\x18\x02 \x03(\t\x12,\n\x06labels\x18\x03 \x03(\x0b\x32\x1c.symba.v1.Worker.LabelsEntry\x12\r\n\x05slots\x18\x04 \x01(\r\x12\x12\n\nslots_busy\x18\x05 \x01(\r\x12-\n\tlast_seen\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\r\n\x05stale\x18\x07 \x01(\x08\x1a-\n\x0bLabelsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x14\n\x12ListWorkersRequest\"8\n\x13ListWorkersResponse\x12!\n\x07workers\x18\x01 \x03(\x0b\x32\x10.symba.v1.Worker2\x9d\x04\n\x0c\x41\x64minService\x12V\n\x0fListRateClasses\x12 .symba.v1.ListRateClassesRequest\x1a!.symba.v1.ListRateClassesResponse\x12;\n\x0fUpsertRateClass\x12\x13.symba.v1.RateClass\x1a\x13.symba.v1.RateClass\x12J\n\x11ListCronSchedules\x12\x19.symba.v1.ListCronRequest\x1a\x1a.symba.v1.ListCronResponse\x12\x44\n\x12UpsertCronSchedule\x12\x16.symba.v1.CronSchedule\x1a\x16.symba.v1.CronSchedule\x12I\n\x0eSetCronEnabled\x12\x1f.symba.v1.SetCronEnabledRequest\x1a\x16.symba.v1.CronSchedule\x12O\n\x12\x44\x65leteCronSchedule\x12\x1b.symba.v1.DeleteCronRequest\x1a\x1c.symba.v1.DeleteCronResponse\x12J\n\x0bListWorkers\x12\x1c.symba.v1.ListWorkersRequest\x1a\x1d.symba.v1.ListWorkersResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -43,19 +43,23 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CRONSCHEDULE']._serialized_start=226
   _globals['_CRONSCHEDULE']._serialized_end=448
   _globals['_LISTCRONREQUEST']._serialized_start=450
-  _globals['_LISTCRONREQUEST']._serialized_end=467
-  _globals['_LISTCRONRESPONSE']._serialized_start=469
-  _globals['_LISTCRONRESPONSE']._serialized_end=530
-  _globals['_SETCRONENABLEDREQUEST']._serialized_start=532
-  _globals['_SETCRONENABLEDREQUEST']._serialized_end=593
-  _globals['_WORKER']._serialized_start=596
-  _globals['_WORKER']._serialized_end=827
-  _globals['_WORKER_LABELSENTRY']._serialized_start=782
-  _globals['_WORKER_LABELSENTRY']._serialized_end=827
-  _globals['_LISTWORKERSREQUEST']._serialized_start=829
-  _globals['_LISTWORKERSREQUEST']._serialized_end=849
-  _globals['_LISTWORKERSRESPONSE']._serialized_start=851
-  _globals['_LISTWORKERSRESPONSE']._serialized_end=907
-  _globals['_ADMINSERVICE']._serialized_start=910
-  _globals['_ADMINSERVICE']._serialized_end=1370
+  _globals['_LISTCRONREQUEST']._serialized_end=483
+  _globals['_LISTCRONRESPONSE']._serialized_start=485
+  _globals['_LISTCRONRESPONSE']._serialized_end=546
+  _globals['_SETCRONENABLEDREQUEST']._serialized_start=548
+  _globals['_SETCRONENABLEDREQUEST']._serialized_end=625
+  _globals['_DELETECRONREQUEST']._serialized_start=627
+  _globals['_DELETECRONREQUEST']._serialized_end=683
+  _globals['_DELETECRONRESPONSE']._serialized_start=685
+  _globals['_DELETECRONRESPONSE']._serialized_end=722
+  _globals['_WORKER']._serialized_start=725
+  _globals['_WORKER']._serialized_end=956
+  _globals['_WORKER_LABELSENTRY']._serialized_start=911
+  _globals['_WORKER_LABELSENTRY']._serialized_end=956
+  _globals['_LISTWORKERSREQUEST']._serialized_start=958
+  _globals['_LISTWORKERSREQUEST']._serialized_end=978
+  _globals['_LISTWORKERSRESPONSE']._serialized_start=980
+  _globals['_LISTWORKERSRESPONSE']._serialized_end=1036
+  _globals['_ADMINSERVICE']._serialized_start=1039
+  _globals['_ADMINSERVICE']._serialized_end=1580
 # @@protoc_insertion_point(module_scope)
