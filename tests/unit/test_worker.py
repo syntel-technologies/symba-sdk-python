@@ -243,6 +243,47 @@ async def test_admission_loop_not_started_when_hook_absent():
     assert w._admission_task is None
 
 
+async def test_idle_claim_stream_periodically_refreshes_registration():
+    """An idle worker must not become stale while its claim stream is healthy."""
+    w = _worker(heartbeat_interval_s=0.01)
+    w._slots = 7
+    w._free_slots = 7
+    requests = w._claim_requests(["io"])
+
+    first = await anext(requests)
+    second = await asyncio.wait_for(anext(requests), timeout=0.1)
+
+    assert first.worker_id == w.worker_id
+    assert first.free_slots == 7
+    assert second.worker_id == w.worker_id
+    assert second.free_slots == 7
+    assert list(second.tags) == ["io"]
+
+    w._stopped.set()
+    await requests.aclose()
+
+
+async def test_claim_stream_reannounces_immediately_on_slot_change():
+    """Capacity changes should not wait for the periodic idle heartbeat."""
+    w = _worker(heartbeat_interval_s=10)
+    w._slots = 7
+    w._free_slots = 7
+    requests = w._claim_requests(["io"])
+
+    first = await anext(requests)
+    next_request = asyncio.create_task(anext(requests))
+    await asyncio.sleep(0)
+    w._free_slots = 6
+    w._slot_changed.set()
+    second = await asyncio.wait_for(next_request, timeout=0.1)
+
+    assert first.free_slots == 7
+    assert second.free_slots == 6
+
+    w._stopped.set()
+    await requests.aclose()
+
+
 async def test_liveness_loop_touches_file(tmp_path):
     """The liveness writer creates + refreshes the file from the event loop."""
     live = tmp_path / "worker.live"

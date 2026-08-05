@@ -509,25 +509,37 @@ class Worker:
     async def _run_claim_stream(self) -> None:
         stub = self._client()
         tags = self._all_tags()
-
-        async def requests() -> Any:
-            # first announcement + re-announce on every slot change
-            while not self._stopped.is_set():
-                yield data_plane_pb2.ClaimRequest(
-                    worker_id=self.worker_id,
-                    tags=tags,
-                    free_slots=self._announce_free_slots(),
-                    sdk_version=SDK_VERSION_STRING,
-                    labels=self.labels,
-                )
-                self._slot_changed.clear()
-                await self._slot_changed.wait()
-
-        call = stub.Claim(requests())
+        call = stub.Claim(self._claim_requests(tags))
         async for assignment in call:
             if self._stopped.is_set():
                 break
             self._handle_assignment(assignment)
+
+    async def _claim_requests(self, tags: list[str]) -> Any:
+        """Announce capacity on change and periodically while idle.
+
+        The engine uses ClaimRequest arrivals as the worker-registration
+        heartbeat. Waiting only for ``_slot_changed`` meant an idle worker sent
+        no traffic, became stale, and stopped receiving the next job despite its
+        claim stream and event loop still being healthy.
+        """
+        while not self._stopped.is_set():
+            yield data_plane_pb2.ClaimRequest(
+                worker_id=self.worker_id,
+                tags=tags,
+                free_slots=self._announce_free_slots(),
+                sdk_version=SDK_VERSION_STRING,
+                labels=self.labels,
+            )
+            self._slot_changed.clear()
+            try:
+                await asyncio.wait_for(
+                    self._slot_changed.wait(),
+                    timeout=self._heartbeat_interval_s,
+                )
+            except TimeoutError:
+                # Idle registration heartbeat: re-yield unchanged capacity.
+                pass
 
     def _announce_free_slots(self) -> int:
         """Slots to advertise to the engine: honest LOCAL capacity.
