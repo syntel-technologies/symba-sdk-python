@@ -16,6 +16,7 @@ def make_job(
     attempt: int = 1,
     result: bytes = b"",
     last_error: str = "",
+    error_history_json: bytes = b"",
 ) -> common_pb2.Job:
     job = common_pb2.Job(
         id=job_id,
@@ -23,6 +24,7 @@ def make_job(
         attempt=attempt,
         result_json=result,
         last_error=last_error,
+        error_history_json=error_history_json,
     )
     job.spec.task_name = task_name
     return job

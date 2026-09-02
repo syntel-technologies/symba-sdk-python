@@ -7,7 +7,8 @@ Slot accounting follows the law in spec 8.4:
    in success/failure branches;
 3. abandoned claims release through the same path (a pre-completed task);
 4. drain bookkeeping is independent of the stop-claiming flag;
-5. an assignment arriving with zero free slots is failed back with
+5. one assignment arriving during the bounded Complete-response slot handoff
+   may wait briefly; sustained over-assignment is failed back with
    ``retryable=True`` + a WARNING (defence against engine accounting bugs).
 """
 
@@ -17,7 +18,7 @@ import asyncio
 import contextlib
 import os
 import signal
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +46,19 @@ from .watchdog import EventLoopWatchdog
 
 _log = get_logger(component="worker")
 
+_SLOT_HANDOFF_GRACE_S = 1.0
+_MAX_CONNECTION_AGE_DETAILS = "max connection age"
+
 HandlerDecorator = Callable[[Callable[..., Any]], Callable[..., Any]]
+
+
+def _is_scheduled_claim_stream_recycle(exc: grpc.aio.AioRpcError) -> bool:
+    """Return whether the engine intentionally recycled its gRPC connection."""
+    details = (exc.details() or "").strip().lower()
+    return (
+        exc.code() == grpc.StatusCode.UNAVAILABLE
+        and details == _MAX_CONNECTION_AGE_DETAILS
+    )
 
 
 class Worker:
@@ -140,6 +153,10 @@ class Worker:
 
         self._running: set[asyncio.Task[Any]] = set()
         self._running_task_names: dict[asyncio.Task[Any], str] = {}
+        # Only assignment-dispatch tasks own capacity. Defensive rejection tasks
+        # are tracked for drain/error handling but must not release a slot they
+        # never acquired.
+        self._slot_owners: set[asyncio.Task[Any]] = set()
         self._accepting = True
         #: Local backpressure gate driven by ``admission_control`` (spec 8.4). When
         #: False the worker announces ``free_slots=0`` (honest local capacity) but
@@ -150,6 +167,8 @@ class Worker:
         self._slots = 0
         self._free_slots = 0
         self._slot_changed = asyncio.Event()
+        self._slot_available = asyncio.Event()
+        self._pending_slot_waiter = False
         self._stopped = asyncio.Event()
         self._dispatcher: Dispatcher | None = None
 
@@ -310,6 +329,8 @@ class Worker:
         )
         self._slots = self._resolve_slots()
         self._free_slots = self._slots
+        if self._free_slots > 0:
+            self._slot_available.set()
         self._build_profile_executors()
         self._dispatcher = Dispatcher(
             DispatchDeps(
@@ -489,6 +510,7 @@ class Worker:
         self._accepting = False
         self._free_slots = 0
         self._slot_changed.set()
+        self._slot_available.set()
         self._stopped.set()
 
     # ------------------------------------------------------------ claim loop
@@ -497,13 +519,58 @@ class Worker:
         backoff = self._settings.grpc.initial_reconnect_backoff_s
         while not self._stopped.is_set():
             try:
-                await self._run_claim_stream()
+                stream_task = asyncio.create_task(self._run_claim_stream())
+                stop_task = asyncio.create_task(self._stopped.wait())
+                done, _pending = await asyncio.wait(
+                    {stream_task, stop_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if stop_task in done:
+                    stream_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await stream_task
+                    return
+                stop_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await stop_task
+                # Propagate the stream result or transport exception into the
+                # existing reconnect policy below.
+                await stream_task
                 backoff = self._settings.grpc.initial_reconnect_backoff_s
             except grpc.aio.AioRpcError as exc:
                 if self._stopped.is_set():
                     return
-                _log.warning("[worker] claim_stream_dropped", code=exc.code().name)
-                await asyncio.sleep(min(backoff, self._settings.grpc.max_reconnect_backoff_s))
+                reconnect_delay_s = min(
+                    backoff,
+                    self._settings.grpc.max_reconnect_backoff_s,
+                )
+                log_fields = {
+                    "code": exc.code().name,
+                    "details": exc.details() or "",
+                    "reconnect_delay_s": reconnect_delay_s,
+                }
+                if exc.code() in {
+                    grpc.StatusCode.UNAUTHENTICATED,
+                    grpc.StatusCode.PERMISSION_DENIED,
+                }:
+                    # Credentials cannot heal through transport backoff. Exit
+                    # so the process supervisor can restart after deployment
+                    # configuration is corrected, rather than leaving a live
+                    # but permanently unregistered worker.
+                    _log.error("[worker] claim_stream_auth_failed", **log_fields)
+                    raise
+                if _is_scheduled_claim_stream_recycle(exc):
+                    _log.info("[worker] claim_stream_recycled", **log_fields)
+                else:
+                    _log.warning("[worker] claim_stream_dropped", **log_fields)
+                try:
+                    await asyncio.wait_for(
+                        self._stopped.wait(),
+                        timeout=reconnect_delay_s,
+                    )
+                    return
+                except TimeoutError:
+                    pass
                 backoff *= 2
 
     async def _run_claim_stream(self) -> None:
@@ -515,7 +582,9 @@ class Worker:
                 break
             self._handle_assignment(assignment)
 
-    async def _claim_requests(self, tags: list[str]) -> Any:
+    async def _claim_requests(
+        self, tags: list[str]
+    ) -> AsyncGenerator[data_plane_pb2.ClaimRequest, None]:
         """Announce capacity on change and periodically while idle.
 
         The engine uses ClaimRequest arrivals as the worker-registration
@@ -529,7 +598,7 @@ class Worker:
                 tags=tags,
                 free_slots=self._announce_free_slots(),
                 sdk_version=SDK_VERSION_STRING,
-                labels=self.labels,
+                labels={**self.labels, "symba.slots_total": str(self._slots)},
             )
             self._slot_changed.clear()
             try:
@@ -555,18 +624,70 @@ class Worker:
 
     # -------------------------------------------------------- slot accounting
     def _handle_assignment(self, assignment: data_plane_pb2.JobAssignment) -> None:
-        if not self._accepting or self._free_slots <= 0:
-            # defence against engine over-assignment (spec 8.4 rule 5)
+        if not self._accepting:
             _log.warning("[worker] assignment_without_slot", job_id=assignment.job.id)
-            self._spawn(self._reject_assignment(assignment))
+            self._spawn(self._reject_assignment(assignment), owns_slot=False)
             return
+        if self._free_slots <= 0:
+            # Complete is committed by the engine just before its RPC response
+            # reaches this worker. Hold one assignment through that sub-second
+            # handoff instead of retrying a healthy job. Sustained or multiple
+            # over-assignment is still rejected by the existing defence.
+            if self._pending_slot_waiter:
+                _log.warning("[worker] assignment_without_slot", job_id=assignment.job.id)
+                self._spawn(self._reject_assignment(assignment), owns_slot=False)
+                return
+            self._pending_slot_waiter = True
+            self._spawn(self._wait_for_slot_or_reject(assignment), owns_slot=False)
+            return
+        self._start_assignment(assignment)
+
+    def _start_assignment(self, assignment: data_plane_pb2.JobAssignment) -> bool:
+        """Acquire one local slot and dispatch, or return False if none is free."""
+        if not self._accepting or self._free_slots <= 0:
+            return False
         self._free_slots -= 1
+        if self._free_slots <= 0:
+            self._slot_available.clear()
         self._slot_changed.set()
         self._spawn(self._dispatch_one(assignment), task_name=assignment.job.spec.task_name)
+        return True
 
-    def _spawn(self, coro: Awaitable[None], *, task_name: str | None = None) -> None:
+    async def _wait_for_slot_or_reject(self, assignment: data_plane_pb2.JobAssignment) -> None:
+        """Absorb the bounded Complete-response/local-release handoff window."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + _SLOT_HANDOFF_GRACE_S
+        try:
+            while self._accepting:
+                if self._start_assignment(assignment):
+                    return
+                self._slot_available.clear()
+                # Re-check after clear so a concurrent release cannot be lost.
+                if self._free_slots > 0:
+                    continue
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    break
+                try:
+                    await asyncio.wait_for(self._slot_available.wait(), timeout=remaining)
+                except TimeoutError:
+                    break
+            _log.warning("[worker] assignment_without_slot", job_id=assignment.job.id)
+            await self._reject_assignment(assignment)
+        finally:
+            self._pending_slot_waiter = False
+
+    def _spawn(
+        self,
+        coro: Awaitable[None],
+        *,
+        task_name: str | None = None,
+        owns_slot: bool = True,
+    ) -> None:
         task = asyncio.ensure_future(coro)
         self._running.add(task)
+        if owns_slot:
+            self._slot_owners.add(task)
         if task_name is not None:
             self._running_task_names[task] = task_name
         task.add_done_callback(self._on_task_done)
@@ -575,8 +696,12 @@ class Worker:
         """THE single release point (spec 8.4 rule 2)."""
         self._running.discard(task)
         self._running_task_names.pop(task, None)
-        if self._accepting:
+        owns_slot = task in self._slot_owners
+        self._slot_owners.discard(task)
+        if owns_slot and self._accepting:
             self._free_slots = min(self._free_slots + 1, self._slots)
+            if self._free_slots > 0:
+                self._slot_available.set()
         self._slot_changed.set()
         exc = task.exception() if not task.cancelled() else None
         if exc is not None:

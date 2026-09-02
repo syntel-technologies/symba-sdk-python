@@ -394,7 +394,9 @@ class Engine:
                 raise JobFailed(
                     job.last_error or "job failed",
                     job_id=job_id,
-                    error_history=_json.loads(job.result_json) if job.result_json else [],
+                    error_history=(
+                        _json.loads(job.error_history_json) if job.error_history_json else []
+                    ),
                 )
             if state == JobState.CANCELLED:
                 raise JobCancelled(job_id=job_id)
@@ -420,7 +422,13 @@ class Engine:
         if ctx_id is None:
             return []
         events: list[JobEvent] = []
-        req = control_plane_pb2.StreamEventsRequest(tenant=self.tenant, ctx_id=ctx_id)
+        # snapshot=true: the engine replays the persisted ledger for the ctx and then
+        # CLOSES the stream. Without it StreamEvents is a live tail that never sees a
+        # job's already-written events and never terminates (events() would hang). The
+        # live tail is exposed separately via stream_events().
+        req = control_plane_pb2.StreamEventsRequest(
+            tenant=self.tenant, ctx_id=ctx_id, snapshot=True
+        )
         # A bounded read of the ledger for one job; the full live tail is stream_events.
         try:
             async for ev in self._client().StreamEvents(req):
@@ -438,24 +446,23 @@ class Engine:
         return events
 
     async def _gate_status(self, gate_id: str) -> GateStatus:
-        """Aggregate child terminal/succeeded counts for the gate (spec 7.2).
+        """Authoritative gate counts from the engine's GetGate RPC (spec 7.2).
 
-        The engine exposes no GateStatus RPC in v1; we compute it from the child
-        rows the caller already holds via a group_key=gate_id Query. Callers who
-        only want the continuation result use :meth:`_gate_result`.
+        The gate row is the ONLY correct source for `succeeded`: a ctx.skip() child
+        settles the gate as terminal but must NOT count as a success, and a
+        client-side recount over child job states cannot tell a skip apart from a
+        real success (both land in SUCCEEDED). So we ask the engine, which tracks
+        succeeded_children transactionally as each child settles. Callers who only
+        want the continuation result use :meth:`_gate_result`.
         """
-        expected = 0
-        terminal = 0
-        succeeded = 0
-        req = control_plane_pb2.QueryRequest(tenant=self.tenant, group_key=gate_id, page_size=1000)
-        async for status in QueryResult(self, req, None):
-            expected += 1
-            if status.state.is_terminal:
-                terminal += 1
-            if status.state == JobState.SUCCEEDED:
-                succeeded += 1
+        req = control_plane_pb2.GetGateRequest(tenant=self.tenant, gate_id=gate_id)
+        status = await self._call(self._client().GetGate, req)
         return GateStatus(
-            gate_id=gate_id, expected=expected, terminal=terminal, succeeded=succeeded
+            gate_id=status.gate_id,
+            expected=status.expected,
+            terminal=status.terminal,
+            succeeded=status.succeeded,
+            fired_at=_ts_to_dt(status.fired_at),
         )
 
     async def _gate_result(

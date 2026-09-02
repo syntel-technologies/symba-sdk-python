@@ -24,7 +24,7 @@ import grpc
 
 from ._version import SDK_VERSION_STRING
 from .config import EngineSettings, GrpcSettings
-from .errors import WrongEventLoop
+from .errors import ConfigError, WrongEventLoop
 from .logging import get_logger
 
 _log = get_logger(component="transport")
@@ -51,16 +51,35 @@ class ParsedTarget:
 
 def parse_target(target: str) -> ParsedTarget:
     """Split ``grpc(s)://host:port`` / bare ``host:port`` into its parts."""
+    target = target.strip()
+    if not target:
+        raise ConfigError("Symba engine target must not be empty")
     if "://" in target:
         parsed = urlparse(target)
         scheme = parsed.scheme
-        authority = parsed.netloc
-        host = parsed.hostname or ""
-        tls = scheme == "grpcs"
+        if scheme in {"grpc", "grpcs"}:
+            authority = parsed.netloc
+            host = parsed.hostname or ""
+            tls = scheme == "grpcs"
+        elif scheme == "dns":
+            authority = target
+            endpoint = parsed.path.lstrip("/")
+            host = endpoint.rsplit(":", 1)[0].strip("[]")
+            tls = False
+        elif scheme == "inmemory":
+            # SymbaTest's explicit non-network backend still constructs the
+            # public Worker facade, but never asks this Transport for a channel.
+            authority = target
+            host = parsed.hostname or "inmemory"
+            tls = False
+        else:
+            raise ConfigError("Symba engine target scheme must be grpc, grpcs, dns, or inmemory")
     else:
         authority = target
-        host = target.rsplit(":", 1)[0]
+        host = target.rsplit(":", 1)[0].strip("[]")
         tls = False
+    if not authority or not host:
+        raise ConfigError("Symba engine target must include a host and port")
     return ParsedTarget(authority=authority, tls=tls, host=host)
 
 
@@ -77,12 +96,15 @@ def _channel_options(grpc_cfg: GrpcSettings) -> list[tuple[str, int]]:
     ]
 
 
-class _AuthInterceptor(
-    grpc.aio.UnaryUnaryClientInterceptor,
-    grpc.aio.UnaryStreamClientInterceptor,
-    grpc.aio.StreamStreamClientInterceptor,
-):
-    """Injects the bearer token + ``sdk_version`` header on every call (spec 4.3)."""
+class _MetadataInjector:
+    """Add SDK identity and bearer credentials to one outbound RPC.
+
+    gRPC's aio ``Channel`` classifies interceptors with an ``if``/``elif``
+    chain. A single object inheriting several interceptor cardinalities is
+    therefore registered only for the first matching shape. Keep the shared
+    augmentation logic here, but expose one concrete interceptor per RPC shape
+    below so streaming calls receive the same security metadata as unary calls.
+    """
 
     def __init__(self, token: str | None) -> None:
         self._token = token
@@ -96,29 +118,78 @@ class _AuthInterceptor(
             metadata.append(("authorization", f"Bearer {self._token}"))
         return client_call_details._replace(metadata=metadata)  # type: ignore[attr-defined]
 
+
+class _UnaryUnaryAuthInterceptor(
+    _MetadataInjector,
+    grpc.aio.UnaryUnaryClientInterceptor,
+):
+    """Inject metadata into unary-request/unary-response RPCs."""
+
     async def intercept_unary_unary(self, continuation, client_call_details, request):  # type: ignore[override]
         return await continuation(self._augment(client_call_details), request)
+
+
+class _UnaryStreamAuthInterceptor(
+    _MetadataInjector,
+    grpc.aio.UnaryStreamClientInterceptor,
+):
+    """Inject metadata into unary-request/stream-response RPCs."""
 
     async def intercept_unary_stream(self, continuation, client_call_details, request):  # type: ignore[override]
         return await continuation(self._augment(client_call_details), request)
 
+
+class _StreamUnaryAuthInterceptor(
+    _MetadataInjector,
+    grpc.aio.StreamUnaryClientInterceptor,
+):
+    """Inject metadata into stream-request/unary-response RPCs."""
+
+    async def intercept_stream_unary(  # type: ignore[override]
+        self,
+        continuation,
+        client_call_details,
+        request_iterator,
+    ):
+        return await continuation(
+            self._augment(client_call_details),
+            request_iterator,
+        )
+
+
+class _StreamStreamAuthInterceptor(
+    _MetadataInjector,
+    grpc.aio.StreamStreamClientInterceptor,
+):
+    """Inject metadata into bidirectional streaming RPCs such as Claim."""
+
     async def intercept_stream_stream(self, continuation, client_call_details, request_iterator):  # type: ignore[override]
         return await continuation(self._augment(client_call_details), request_iterator)
+
+
+def _read_tls_file(path: str, *, label: str) -> bytes:
+    try:
+        with open(path, "rb") as handle:
+            value = handle.read()
+    except OSError as exc:
+        raise ConfigError(f"Unable to read configured {label}") from exc
+    if not value.strip():
+        raise ConfigError(f"Configured {label} is empty")
+    return value
 
 
 def _credentials(parsed: ParsedTarget, tls: TlsConfig | None) -> grpc.ChannelCredentials:
     root = tls.ca_file if tls else None
     private_key = None
     cert_chain = None
+    if tls and bool(tls.cert_file) != bool(tls.key_file):
+        raise ConfigError("Symba client TLS requires both certificate and private key")
     if tls and tls.cert_file and tls.key_file:
-        with open(tls.key_file, "rb") as f:
-            private_key = f.read()
-        with open(tls.cert_file, "rb") as f:
-            cert_chain = f.read()
+        private_key = _read_tls_file(tls.key_file, label="TLS private key")
+        cert_chain = _read_tls_file(tls.cert_file, label="TLS certificate")
     root_bytes = None
     if root:
-        with open(root, "rb") as f:
-            root_bytes = f.read()
+        root_bytes = _read_tls_file(root, label="TLS CA certificate")
     return grpc.ssl_channel_credentials(
         root_certificates=root_bytes,
         private_key=private_key,
@@ -138,7 +209,14 @@ class Transport:
     ) -> None:
         self._engine = engine
         self._grpc_cfg = grpc_cfg
-        self._tls = tls
+        configured_tls = None
+        if any((engine.tls_ca_file, engine.tls_cert_file, engine.tls_key_file)):
+            configured_tls = TlsConfig(
+                ca_file=engine.tls_ca_file,
+                cert_file=engine.tls_cert_file,
+                key_file=engine.tls_key_file,
+            )
+        self._tls = tls or configured_tls
         self._parsed = parse_target(engine.target)
         self._channel: grpc.aio.Channel | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -161,7 +239,13 @@ class Transport:
             return self._channel
 
         options = _channel_options(self._grpc_cfg)
-        interceptors = [_AuthInterceptor(self._engine.token)]
+        interceptor_types = (
+            _UnaryUnaryAuthInterceptor,
+            _UnaryStreamAuthInterceptor,
+            _StreamUnaryAuthInterceptor,
+            _StreamStreamAuthInterceptor,
+        )
+        interceptors = [kind(self._engine.token) for kind in interceptor_types]
         use_tls = self._parsed.tls or self._engine.tls
 
         if use_tls:

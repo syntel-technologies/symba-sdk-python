@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
+import grpc
 import pytest
 
 from symba import _json
 from symba import checkpoint as checkpoint_mod
+from symba._proto import data_plane_pb2
 from symba.checkpoint import CheckpointStore
 
 from ._fakes import FakeRedis, FakeWorkerStub
@@ -46,6 +50,36 @@ async def test_fast_path_writes_redis_and_fires_background_rpc():
     # PutCheckpoint fires in the background; drain to observe it.
     await store.drain()
     assert len(worker.checkpoints) == 1
+
+
+async def test_transient_checkpoint_rpc_failure_is_retried(monkeypatch):
+    class FlakyWorkerStub(FakeWorkerStub):
+        def __init__(self) -> None:
+            super().__init__()
+            self.attempts = 0
+
+        async def PutCheckpoint(self, req: data_plane_pb2.PutCheckpointRequest):
+            self.attempts += 1
+            if self.attempts < 3:
+                raise grpc.aio.AioRpcError(
+                    grpc.StatusCode.UNAVAILABLE,
+                    grpc.aio.Metadata(),
+                    grpc.aio.Metadata(),
+                    details="connection timed out",
+                )
+            return await super().PutCheckpoint(req)
+
+    worker, redis = FlakyWorkerStub(), FakeRedis()
+    sleep = AsyncMock()
+    monkeypatch.setattr(checkpoint_mod.asyncio, "sleep", sleep)
+    store = _store(worker, redis)
+
+    await store.write({"n": 1})
+    await store.drain()
+
+    assert worker.attempts == 3
+    assert len(worker.checkpoints) == 1
+    assert sleep.await_count == 2
 
 
 async def test_read_fast_prefers_redis():

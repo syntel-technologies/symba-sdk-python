@@ -42,6 +42,7 @@ from .job import Gate, JobHandle
 from .middleware import LoggingMiddleware, MetricsMiddleware, WorkerMiddleware
 from .profiles import Profile
 from .sync import SyncEngine
+from .transport import TlsConfig
 from .types import (
     CancelOutcome,
     GateStatus,
@@ -59,6 +60,7 @@ __all__ = [
     # client SDK (spec 6, 7)
     "Engine",
     "SyncEngine",
+    "TlsConfig",
     "JobHandle",
     "Gate",
     "RetryPolicy",

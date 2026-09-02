@@ -7,6 +7,8 @@ cancellation) behaves like the production engine's public contract.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from symba import Worker
@@ -222,7 +224,7 @@ async def test_gate_continuation_preserves_payload_and_adds_manifest():
     async def child(ctx, payload):
         return {"x": payload["x"]}
 
-    seen: dict[str, object] = {}
+    seen: dict[str, Any] = {}
 
     @w.task("assemble")
     async def assemble(ctx, payload):

@@ -95,7 +95,9 @@ class Dispatcher:
             payload = validate_payload(ctx.payload, task.input_schema)
             ctx.payload = payload
         except SymbaError as exc:
-            await self._fail_from_exc(job.id, assignment.lease_token, exc, retryable=False)
+            await self._fail_from_exc(
+                job.id, assignment.lease_token, exc, retryable=False, max_attempts=task.max_attempts
+            )
             await self._deps.middleware.on_fail(ctx, exc, False)
             return
 
@@ -128,7 +130,9 @@ class Dispatcher:
             return
         except BaseException as exc:
             await shell.stop()
-            await self._finalize_failure(job.id, assignment.lease_token, ctx, exc)
+            await self._finalize_failure(
+                job.id, assignment.lease_token, ctx, exc, max_attempts=task.max_attempts
+            )
             return
 
         await shell.stop()
@@ -275,7 +279,9 @@ class Dispatcher:
                 result = serialize_result(outcome, task.output_schema)
                 await self._complete(job_id, lease_token, _json.dumps(result))
         except SymbaError as exc:
-            await self._finalize_failure(job_id, lease_token, ctx, exc)
+            await self._finalize_failure(
+                job_id, lease_token, ctx, exc, max_attempts=task.max_attempts
+            )
             return
         await self._cleanup_checkpoints(ctx)
         await self._deps.middleware.on_complete(ctx, outcome, duration_ms)
@@ -290,7 +296,13 @@ class Dispatcher:
         await store.delete_fast()
 
     async def _finalize_failure(
-        self, job_id: str, lease_token: str, ctx: Ctx, exc: BaseException
+        self,
+        job_id: str,
+        lease_token: str,
+        ctx: Ctx,
+        exc: BaseException,
+        *,
+        max_attempts: int | None = None,
     ) -> None:
         if isinstance(exc, SymbaError):
             retryable = exc.retryable
@@ -302,7 +314,9 @@ class Dispatcher:
             retryable=retryable,
             exc_info=exc,
         )
-        await self._fail_from_exc(job_id, lease_token, exc, retryable=retryable)
+        await self._fail_from_exc(
+            job_id, lease_token, exc, retryable=retryable, max_attempts=max_attempts
+        )
         await self._deps.middleware.on_fail(ctx, exc, retryable)
 
     async def _finalize_cancel(
@@ -350,7 +364,13 @@ class Dispatcher:
         await self._deliver(self._deps.stub.Complete, req, job_id, "Complete")
 
     async def _fail_from_exc(
-        self, job_id: str, lease_token: str, exc: BaseException, *, retryable: bool
+        self,
+        job_id: str,
+        lease_token: str,
+        exc: BaseException,
+        *,
+        retryable: bool,
+        max_attempts: int | None = None,
     ) -> None:
         # A subprocess error echoes the original (in-child) type name for fidelity.
         error_type = getattr(exc, "original_type", None) or type(exc).__name__
@@ -361,6 +381,7 @@ class Dispatcher:
             message=str(exc),
             retryable=retryable,
             stack_hash=_stack_hash(exc),
+            max_attempts=max_attempts,
         )
 
     async def _fail(
@@ -372,6 +393,7 @@ class Dispatcher:
         message: str,
         retryable: bool,
         stack_hash: str,
+        max_attempts: int | None = None,
     ) -> None:
         req = data_plane_pb2.FailRequest(
             job_id=job_id,
@@ -380,6 +402,9 @@ class Dispatcher:
             error_message=message[:_ERROR_MESSAGE_CAP],
             stack_hash=stack_hash,
             retryable=retryable,
+            # Report the worker-declared retry cap so the engine dies at the right
+            # attempt; 0/unset leaves the engine on its stored default.
+            max_attempts=max_attempts or 0,
         )
         await self._deliver(self._deps.stub.Fail, req, job_id, "Fail")
 

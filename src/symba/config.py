@@ -43,26 +43,16 @@ class WorkerSettings(BaseModel):
     name: str | None = None
     #: ``None`` lets the profile decide (spec 11); an explicit value always wins.
     slots: int | None = Field(default=None, ge=1)
-    #: Size of the cpu-profile forkserver pool (spec 11.1). SEPARATE from
-    #: ``slots`` on purpose: ``slots`` is the io concurrency budget (await-bound,
-    #: safe to set in the hundreds), whereas each cpu subprocess is a real OS
-    #: process that may load model weights, so it must be bounded by CPU cores —
-    #: NOT by the io slot budget. ``None`` => ``min(slots, os.cpu_count())``.
-    #: Sizing the cpu pool to ``slots`` (e.g. 200) forks hundreds of
-    #: model-loading subprocesses and OOM-kills the host.
+    #: Size of the cpu-profile forkserver pool (spec 11.1). This is separate
+    #: from the await-bound worker slot budget because each CPU slot is an OS
+    #: subprocess that may load model weights.
     cpu_slots: int | None = Field(default=None, ge=1)
-    #: Recycle a cpu-profile forkserver subprocess after this many jobs (spec
-    #: 11.1 pool hygiene). A process that repeatedly loads/runs model weights can
-    #: fragment or leak memory over thousands of jobs; recycling bounds that, the
-    #: same way a DB pool recycles connections. ``None`` disables recycling.
+    #: Recycle a CPU subprocess after this many completed jobs. ``None`` keeps
+    #: processes alive until worker shutdown.
     cpu_max_jobs_per_process: int | None = Field(default=None, ge=1)
-    #: Poll interval for the optional ``admission_control`` hook (see
-    #: ``Worker(admission_control=...)``). Only relevant when a hook is supplied.
+    #: Poll interval for an optional host-supplied admission-control callback.
     admission_poll_s: float = Field(default=1.0, gt=0)
-    #: Optional path the worker touches from the event loop every heartbeat so an
-    #: external healthcheck can detect an alive-but-WEDGED loop (a stale mtime).
-    #: ``None`` disables the writer. The SDK ships NO probe -- the host decides
-    #: the freshness threshold in its own healthcheck.
+    #: Optional file touched by the event loop for external liveness probes.
     liveness_file: str | None = None
     tags: list[str] = Field(default_factory=list)
     drain_timeout_s: float = Field(default=30.0, ge=0)

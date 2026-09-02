@@ -18,7 +18,10 @@ from __future__ import annotations
 import asyncio
 import atexit
 import threading
+import time
 from collections.abc import Coroutine
+from concurrent.futures import TimeoutError as FutureTimeoutError
+from contextlib import suppress
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -39,28 +42,96 @@ class _LoopThread:
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._run, name="symba-sync-loop", daemon=True)
         self._started = False
-        self._lock = threading.Lock()
+        self._closing = False
+        self._closed = False
+        self._in_flight = 0
+        self._ready = threading.Event()
+        self._condition = threading.Condition()
 
     def _run(self) -> None:
         asyncio.set_event_loop(self._loop)
-        self._loop.run_forever()
+        self._ready.set()
+        try:
+            self._loop.run_forever()
+        finally:
+            pending = asyncio.all_tasks(self._loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                self._loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
+            asyncio.set_event_loop(None)
+            self._loop.close()
+            with self._condition:
+                self._closed = True
+                self._condition.notify_all()
 
     def ensure_started(self) -> None:
-        with self._lock:
+        with self._condition:
+            if self._closing or self._closed:
+                raise RuntimeError("SyncEngine background loop is closed")
             if not self._started:
                 self._thread.start()
                 self._started = True
+        if not self._ready.wait(timeout=5.0):
+            raise RuntimeError("SyncEngine background loop did not start")
 
     def run(self, coro: Coroutine[Any, Any, _T], timeout: float | None = None) -> _T:
-        self.ensure_started()
-        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return future.result(timeout)
+        try:
+            self.ensure_started()
+            with self._condition:
+                if self._closing or self._closed:
+                    raise RuntimeError("SyncEngine background loop is closed")
+                self._in_flight += 1
+        except BaseException:
+            coro.close()
+            raise
 
-    def close(self) -> None:
-        if not self._started:
-            return
-        self._loop.call_soon_threadsafe(self._loop.stop)
-        self._thread.join(timeout=5)
+        try:
+            future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        except BaseException:
+            coro.close()
+            with self._condition:
+                self._in_flight -= 1
+                self._condition.notify_all()
+            raise
+
+        try:
+            return future.result(timeout)
+        except FutureTimeoutError:
+            future.cancel()
+            raise
+        finally:
+            with self._condition:
+                self._in_flight -= 1
+                self._condition.notify_all()
+
+    def close(self, *, timeout: float = 5.0) -> bool:
+        """Stop the owner loop idempotently within one total timeout."""
+        deadline = time.monotonic() + max(0.0, timeout)
+        with self._condition:
+            if self._closed:
+                return True
+            self._closing = True
+            while self._in_flight > 0:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                self._condition.wait(timeout=remaining)
+            started = self._started
+
+        if not started:
+            self._loop.close()
+            with self._condition:
+                self._closed = True
+                self._condition.notify_all()
+            return True
+
+        if self._loop.is_running():
+            self._loop.call_soon_threadsafe(self._loop.stop)
+        self._thread.join(timeout=max(0.0, deadline - time.monotonic()))
+        return not self._thread.is_alive()
 
 
 def _guard_not_in_loop() -> None:
@@ -203,6 +274,9 @@ class SyncEngine:
         )
         self.tenant = tenant
         self._admin: SyncAdmin | None = None
+        self._close_lock = threading.Lock()
+        self._closing = False
+        self._closed = False
         atexit.register(self.close)
 
     @property
@@ -291,12 +365,25 @@ class SyncEngine:
         return self._loop.run(self._engine.signal(wait_key, payload, signaled_by=signaled_by))
 
     def close(self) -> None:
-        """Close the channel and stop the background loop thread."""
+        """Close the channel and loop once, with bounded interpreter shutdown."""
+        with self._close_lock:
+            if self._closing or self._closed:
+                return
+            self._closing = True
         try:
-            self._loop.run(self._engine.aclose())
-        except Exception:  # best-effort close at interpreter shutdown
-            pass
-        self._loop.close()
+            try:
+                self._loop.run(self._engine.aclose(), timeout=5.0)
+            except Exception:
+                # Best effort during explicit and interpreter shutdown. The
+                # loop teardown below cancels a timed-out channel close.
+                pass
+            self._loop.close(timeout=5.0)
+        finally:
+            with self._close_lock:
+                self._closed = True
+                self._closing = False
+            with suppress(Exception):
+                atexit.unregister(self.close)
 
     def __enter__(self) -> SyncEngine:
         return self

@@ -17,6 +17,7 @@ from pathlib import Path
 PROTO_DIR = Path(__file__).resolve().parent.parent / "src" / "symba" / "_proto"
 
 # The proto package as declared in the engine's .proto files (``package symba.v1;``).
+# If the engine ever renames its package this constant is the only thing that changes.
 PROTO_PKG = "symba.v1"
 
 
@@ -48,7 +49,7 @@ def _rewrite(text: str) -> str:
 
 def main() -> int:
     if not PROTO_DIR.is_dir():
-        print(f"proto dir not found: {PROTO_DIR}", file=sys.stderr)
+        sys.stderr.write(f"proto dir not found: {PROTO_DIR}\n")
         return 1
     changed = 0
     for path in sorted(PROTO_DIR.glob("*.py")):
@@ -59,7 +60,7 @@ def main() -> int:
         if rewritten != original:
             path.write_text(rewritten)
             changed += 1
-    print(f"fix_proto_imports: rewrote {changed} file(s) in {PROTO_DIR}")
+    sys.stdout.write(f"fix_proto_imports: rewrote {changed} file(s) in {PROTO_DIR}\n")
     return 0
 
 
