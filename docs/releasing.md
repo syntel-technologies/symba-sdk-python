@@ -51,7 +51,7 @@ uv run --no-sync pyright
 uv run --no-sync pytest tests/unit tests/conformance -q
 uv run --no-sync python tools/generate_proto.py --check
 uv build
-uvx --from twine==6.2.0 twine check dist/*
+uvx --from twine==7.0.0 twine check dist/*
 ```
 
 CI additionally covers Python 3.11–3.14, minimum direct dependencies and absent/5.x/8.x Redis. `--no-sync` is essential after adjusting an environment for a matrix case. Live conformance starts the engine commit in `src/symba/_proto/ENGINE_REF` and requires every engine case to execute successfully; a missing service cannot be reported as a green skip. To change the engine contract, update the 40-character commit pin, run `make proto-gen`, review the generated Python **and typing** files, and pass live compatibility CI. `src/symba/_proto/VERSION` records the wire release line, not a checkout ref.

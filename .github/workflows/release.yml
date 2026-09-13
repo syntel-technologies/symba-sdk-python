@@ -46,7 +46,7 @@ jobs:
         with:
           version: '0.11'
       - run: uv build
-      - run: uvx --from twine==6.2.0 twine check dist/*
+      - run: uvx --from twine==7.0.0 twine check dist/*
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-distributions
