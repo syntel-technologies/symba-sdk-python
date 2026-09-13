@@ -161,10 +161,34 @@ jobs:
           path: dist/*
           retention-days: 7
 
+  repository-hygiene:
+    name: Workflow and secret checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install checksum-pinned quality tools
+        run: |
+          mkdir -p "$RUNNER_TEMP/quality-tools"
+          cd "$RUNNER_TEMP/quality-tools"
+          curl --fail --silent --show-error --location "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz" --output "gitleaks_8.30.1_linux_x64.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks_8.30.1_linux_x64.tar.gz" | sha256sum --check --strict
+          tar -xzf "gitleaks_8.30.1_linux_x64.tar.gz" gitleaks
+          curl --fail --silent --show-error --location "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz" --output "actionlint_1.7.12_linux_amd64.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint_1.7.12_linux_amd64.tar.gz" | sha256sum --check --strict
+          tar -xzf "actionlint_1.7.12_linux_amd64.tar.gz" actionlint
+      - name: Validate all GitHub workflows
+        run: '"$RUNNER_TEMP/quality-tools/actionlint" -shellcheck=""'
+      - name: Scan committed history without revealing secret values
+        run: '"$RUNNER_TEMP/quality-tools/gitleaks" git --redact --no-banner'
+
   required-checks:
     name: Required checks
     if: always()
-    needs: [lint, typecheck, unit, stub-check, integration, build]
+    needs: [lint, typecheck, unit, stub-check, integration, build, repository-hygiene]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:

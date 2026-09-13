@@ -5,7 +5,7 @@ The canonical repository is https://github.com/syntel-technologies/symba-sdk-pyt
 ## Normal development
 
 1. Branch from updated `dev`, make a focused change and open a PR back to `dev`. Use a meaningful Conventional Commit title: `fix: reconnect an idle worker`, `feat: add task capabilities`, or `feat!: change a public contract`.
-2. Squash short-lived feature PRs so their reviewed titles become meaningful commits. Promote `dev` to `main` with a **merge commit**, preserving the long-lived branch ancestry. Never repeatedly squash `dev` into `main`.
+2. Squash short-lived feature PRs so their reviewed titles become meaningful commits. Promote `dev` to `main` with a **merge commit**, preserving the long-lived branch ancestry. The main rules allow merge commits only; short-lived feature PRs into dev can still use squash. Never repeatedly squash `dev` into `main`.
 3. The `main` rules require another person's approval, fresh approval after changes, resolved review conversations, and passing checks. Repository administrators have no bypass. `Required checks` aggregates the mandatory CI jobs so a skipped/failed dependency cannot look green. `PR title` validates the review title.
 4. For commits pushed directly to `dev`, use Conventional Commit messages too. The title check cannot retroactively rename arbitrary commits inside a long-lived branch promotion. Keep changes cohesive; do not use `fixes` or `gooo`.
 
@@ -39,6 +39,8 @@ No App subscription is required. These are public repositories, so standard GitH
 
 ## Dependency and security checks
 
+Every PR CI run also checks workflow syntax with Actionlint and scans committed history with Gitleaks. Both CLIs use pinned releases verified against fixed SHA256 digests; Gitleaks redacts secret values. These checks are included in `Required checks`.
+
 Dependabot sends grouped compatible dependency updates to `dev` weekly; major updates remain separately reviewable. GitHub also reports known vulnerabilities and security updates on the default branch. CodeQL, secret scanning and push protection cover the public repositories once configured. The nightly engine load suite is a separate performance signal, not a substitute for PR CI; never lower its thresholds merely to make it green.
 
 ## Reproducing checks
@@ -71,5 +73,5 @@ At https://pypi.org/manage/account/publishing/ create the publisher (or configur
 | Workflow filename | `release.yml` |
 | Environment | `pypi` |
 
-Create the GitHub `pypi` environment, restrict deployments to `v*` tags, then set repository Actions variable `PYPI_PUBLISH_ENABLED=true` only when publication is intended. The publishing job receives OIDC permission; ordinary tests do not. Leave the variable false while reviewing the first public release. If the PyPI name is unavailable, change the distribution name, metadata, workflow URLs and release configuration together in a PR before publishing. See [GitHub/PyPI OIDC setup](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-pypi).
+The GitHub `pypi` environment is already restricted to `v*` tags, and publication is explicitly disabled. Set repository Actions variable `PYPI_PUBLISH_ENABLED=true` only when publication is intended. The publishing job receives OIDC permission; ordinary tests do not. Leave the variable false while reviewing the first public release. If the PyPI name is unavailable, change the distribution name, metadata, workflow URLs and release configuration together in a PR before publishing. See [GitHub/PyPI OIDC setup](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-pypi).
 
