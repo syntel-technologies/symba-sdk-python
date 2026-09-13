@@ -11,7 +11,7 @@ Most examples need a running engine on `grpc://localhost:7233`. Bring one up wit
 Install the SDK (with the CLI extra to use `symba run`):
 
 ```bash
-pip install "symba[cli]"
+pip install "syntel-symba[cli]"
 ```
 
 | Example | What it shows | How to run |

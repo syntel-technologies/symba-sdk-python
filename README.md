@@ -155,11 +155,15 @@ durability; the SDK owns everything Python. See the engine README's
 
 ## 📦 Install & extras
 
+The PyPI distribution is `syntel-symba`; Python imports remain `from symba import Worker`. The unrelated PyPI project named `symba` is not this SDK. Do not install both distributions into one environment because they share the import name.
+
+The commands below apply after the first PyPI release. Until then, install from the reviewed repository checkout with `pip install .`.
+
 ```bash
-pip install symba                 # client + worker, io profile, durable checkpoints
-pip install "symba[redis]"        # + checkpoint fast path (Redis in front of PutCheckpoint)
-pip install "symba[cli]"          # + the `symba` command (typer + rich)
-pip install "symba[redis,cli]"    # everything
+pip install syntel-symba                 # client + worker, io profile, durable checkpoints
+pip install "syntel-symba[redis]"        # + checkpoint fast path (Redis in front of PutCheckpoint)
+pip install "syntel-symba[cli]"          # + the `symba` command (typer + rich)
+pip install "syntel-symba[redis,cli]"    # everything
 ```
 
 | Extra | Pulls in | Needed for |

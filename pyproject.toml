@@ -1,5 +1,5 @@
 [project]
-name = "symba"
+name = "syntel-symba"
 version = "0.1.0"
 description = "The Python SDK for Symba — durable jobs with a decorator and a function."
 readme = "README.md"

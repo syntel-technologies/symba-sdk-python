@@ -8,7 +8,7 @@ from pathlib import Path
 
 def _pkg_version() -> str:
     try:
-        return importlib.metadata.version("symba")
+        return importlib.metadata.version("syntel-symba")
     except importlib.metadata.PackageNotFoundError:  # editable/source checkout
         return "0.0.0.dev0"
 

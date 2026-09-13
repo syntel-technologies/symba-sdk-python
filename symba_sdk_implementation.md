@@ -5,7 +5,7 @@
 **Companions:** `symba/docs/job_engine_design.md` (architecture decisions AD-1..AD-23, referenced not re-argued), `symba/docs/symba_implementation.md` (engine internals, wire contract source of truth, DDL owner)
 **Scope:** Everything needed to build `symba-sdk-python` from an empty repo: pinned dependency ranges, repository layout, generated-stub policy, the full public API surface (`Engine`, `Worker`, `Ctx`, `JobHandle`, `Gate`), worker runtime internals (claim stream, dispatch pipeline, executors, heartbeat shell, slot accounting), context implementation (two-tier `ctx.output`, checkpoints, wait/signal re-entry), error taxonomy and retry classification, logging, the `SymbaTest` in-memory engine and conformance obligations, the sync facade, the CLI, testing strategy, CI/CD, and the build order.
 
-The engine (`symba` repo) is the server; this repo ships the **two SDKs in one package**: the **client SDK** (submit/query/await/signal — what application code calls) and the **worker SDK** (register handlers, claim, execute — what runs on the fleet). One PyPI package `symba`, one import root `symba` (pip install symba) (design doc, open question 6: decided).
+The engine (`symba` repo) is the server; this repo ships the **two SDKs in one package**: the **client SDK** (submit/query/await/signal — what application code calls) and the **worker SDK** (register handlers, claim, execute — what runs on the fleet). One PyPI package `symba`, one import root `symba` (pip install syntel-symba) (design doc, open question 6: decided).
 
 ---
 
