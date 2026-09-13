@@ -1,6 +1,6 @@
 # Compatibility
 
-The Symba SDK (`symba`) and the [Symba engine](https://github.com/syntel-technologies/symba) communicate
+The Symba SDK (PyPI `syntel-symba`, Python import `symba`) and the [Symba engine](https://github.com/syntel-technologies/symba) communicate
 over a **protobuf wire contract**. The SDK commits the generated stubs (`src/symba/_proto/`) and
 records the proto version they were built from:
 
@@ -43,7 +43,7 @@ prints the SDK version, proto version, and target so you can confirm a pairing b
 ## Python & dependency support
 
 - **Python:** 3.11 – 3.14 (see `requires-python` in [`pyproject.toml`](pyproject.toml)).
-- **Runtime deps:** declared as ranges (`grpcio>=1.66,<2.0`, `protobuf>=5.29,<8.0`,
+- **Runtime deps:** declared as ranges (`grpcio>=1.82.1,<2.0`, `protobuf>=7.35,<8.0`,
   `pydantic>=2.7,<3.0`, `structlog>=24.1,<27.0`, `tenacity>=8.3,<10.0`). CI tests the min and
   latest of each range.
 - **Optional extras:** `redis>=5.0,<9.0` (checkpoint fast path), `typer`/`rich` (CLI). CI runs the
@@ -53,4 +53,4 @@ prints the SDK version, proto version, and target so you can confirm a pairing b
 
 Stubs are committed so the package installs without a proto toolchain. Maintainers regenerate them
 from the engine's `proto/` with `make proto-gen` (see the [`Makefile`](Makefile)); CI's
-`stub-check` job fails if the committed stubs drift from the pinned engine proto tag.
+`stub-check` job fails if the committed stubs drift from the immutable engine commit recorded in `src/symba/_proto/ENGINE_REF`.

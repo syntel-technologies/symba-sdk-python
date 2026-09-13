@@ -2,7 +2,7 @@
 
 Typer-based, mirrors the engine's ops surface from the developer's side. Installed
 as the ``symba`` console script (requires the ``[cli]`` extra: ``pip install
-symba[cli]``). Every command honors ``SYMBA_*`` env vars; ``--engine`` overrides.
+syntel-symba[cli]``). Every command honors ``SYMBA_*`` env vars; ``--engine`` overrides.
 
 ``symba doctor`` is the support-load killer: connectivity, auth, version handshake
 and Redis reachability in one PASS/FAIL table with remediation hints.
@@ -23,7 +23,7 @@ try:
     from rich.table import Table
 except ImportError as exc:  # pragma: no cover - only hit without the [cli] extra
     raise SystemExit(
-        "the symba CLI requires the 'cli' extra: install with `pip install symba[cli]`"
+        "the symba CLI requires the 'cli' extra: install with `pip install syntel-symba[cli]`"
     ) from exc
 
 app = typer.Typer(

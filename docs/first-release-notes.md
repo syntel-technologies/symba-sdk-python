@@ -2,6 +2,7 @@
 
 These notes describe the consolidated code intended for the initial 0.1.0 release. They are **not an announcement that a release has shipped**. Use them to enrich the first Release Please PR; verify all claims against its final diff and CI before merging.
 
+- Install as `syntel-symba` (optional `[cli]` and `[redis]` extras); retain `from symba import Worker` and the `symba` CLI. The unrelated PyPI package named `symba` is not this SDK.
 - Typed async and sync Python clients plus decorator-based workers and optional CLI/Redis integrations.
 - Job chains, gates, retries, cooperative cancellation, checkpoints and event-driven resume.
 - In-memory SymbaTest alongside conformance against a pinned real engine.

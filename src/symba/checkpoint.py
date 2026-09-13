@@ -73,7 +73,7 @@ async def open_redis(url: str) -> Any:
     except ImportError as exc:  # pragma: no cover - depends on host env
         raise RuntimeError(
             "SYMBA_CHECKPOINT_REDIS_URL is set but the 'redis' extra is not installed; "
-            "install symba[redis] or unset the URL to use the durable PutCheckpoint path"
+            "install syntel-symba[redis] or unset the URL to use the durable PutCheckpoint path"
         ) from exc
     return aioredis.from_url(url, decode_responses=False)
 
