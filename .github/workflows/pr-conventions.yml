@@ -1,0 +1,19 @@
+name: PR conventions
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+jobs:
+  title:
+    name: PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            if (!/^(feat|fix|perf|refactor|docs|test|build|ci|chore|revert)(\([a-zA-Z0-9_.\/-]+\))?!?: .+/.test(title)) {
+              core.setFailed('Use a Conventional Commit title, for example fix: handle disconnected workers. Use ! for a breaking change.');
+            }

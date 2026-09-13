@@ -1,0 +1,129 @@
+[project]
+name = "syntel-symba"
+version = "0.1.0"
+description = "The Python SDK for Symba — durable jobs with a decorator and a function."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Syntel Technologies" }]
+keywords = ["jobs", "queue", "grpc", "workers", "durable-execution", "symba"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
+dependencies = [
+    # Floors match the committed gencode (protobuf 7.35.0 / grpcio 1.82.1); a host
+    # project's transitive resolution must not land below them or the generated
+    # stubs raise at import (PKG-1). Keep in lockstep when regenerating stubs.
+    "grpcio>=1.82.1,<2.0",
+    "protobuf>=7.35,<8.0",
+    "pydantic>=2.7,<3.0",
+    "pydantic-settings>=2.3,<3.0",
+    "structlog>=24.1,<27.0",
+    "tenacity>=8.3,<10.0",
+]
+
+[project.optional-dependencies]
+redis = ["redis>=5.0,<9.0"]
+cli = ["typer>=0.15,<1.0", "rich>=13.0,<16.0"]
+
+[project.scripts]
+symba = "symba.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/syntel-technologies/symba-sdk-python"
+Repository = "https://github.com/syntel-technologies/symba-sdk-python"
+Engine = "https://github.com/syntel-technologies/symba"
+
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.82.1,<2.0",
+    "ruff==0.15.21",
+    "pyright==1.1.411",
+    "pytest>=9.0,<10.0",
+    "pytest-asyncio>=1.4,<2.0",
+    "pytest-timeout>=2.3,<3.0",
+    "hypothesis>=6.156,<7.0",
+    "typer>=0.15,<1.0",
+    "rich>=13.0,<16.0",
+    "redis>=5.0,<9.0",
+]
+
+[build-system]
+requires = ["hatchling==1.32.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/symba"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = ["src/symba/_proto"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "TID", "T20", "ASYNC", "RUF"]
+ignore = ["E501", "RUF022", "ASYNC109"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"asyncpg".msg = "server-side dependency: the SDK must never import a DB driver (spec 1.2)."
+"fastapi".msg = "server-side dependency: the SDK is a client/worker library (spec 1.2)."
+"uvicorn".msg = "server-side dependency: the SDK does not run an HTTP server (spec 1.2)."
+"logging".msg = "use structlog via symba.logging; stdlib logging is banned outside logging.py (spec 18)."
+
+[tool.ruff.lint.per-file-ignores]
+"src/symba/logging.py" = ["TID251"]
+"src/symba/cli.py" = ["T20"]
+"tests/**" = ["T20"]
+# examples are runnable scripts that print their results to the console.
+"examples/**" = ["T20"]
+
+[tool.pyright]
+include = ["src/symba", "tests"]
+exclude = ["src/symba/_proto", "**/__pycache__"]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+# grpc.aio and the generated protobuf messages ship no (or partial) type info.
+# We keep strict checking of our own logic (optional access, missing returns,
+# argument types) but silence the "Unknown"-cascade that originates purely from
+# those untyped third-party surfaces — chasing it would mean casting every proto
+# field access, which buys no real safety.
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownParameterType = false
+reportUnknownLambdaType = false
+reportMissingParameterType = false
+reportPrivateUsage = false
+reportUnnecessaryIsInstance = false
+
+# Tests intentionally use bare generics and register handlers via decorators
+# whose names are never referenced again; neither is a real defect.
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+reportMissingTypeArgument = false
+reportUnusedFunction = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+timeout = 60
+testpaths = ["tests"]
+markers = [
+    "integration: requires a running Symba engine (dockerized)",
+    "conformance: runs against both SymbaTest and the real engine",
+    "gpu: requires GPU hardware or subprocess support",
+]
+
+[tool.coverage.run]
+source = ["src/symba"]
+omit = ["src/symba/_proto/*"]

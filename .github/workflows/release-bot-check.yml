@@ -1,0 +1,37 @@
+name: Release bot check
+on:
+  push:
+    branches: [dev, main]
+    paths: ['.github/workflows/release-bot-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create token with the exact release permissions
+        id: bot
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+      - name: Verify repository scope without creating a release
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          github-token: ${{ steps.bot.outputs.token }}
+          script: |
+            const {data} = await github.rest.apps.listReposAccessibleToInstallation();
+            if (data.total_count !== 1 || data.repositories[0]?.full_name !== `${context.repo.owner}/${context.repo.repo}`) {
+              throw new Error('Release token must be scoped to this repository only.');
+            }
+            await core.summary.addHeading('Release bot verified')
+              .addRaw('The App key works, installation permissions cover Contents/PRs/Issues write, and the token is restricted to this repository. No PR, tag or release was created.')
+              .write();

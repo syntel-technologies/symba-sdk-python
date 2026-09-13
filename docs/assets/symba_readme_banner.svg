@@ -1,0 +1,33 @@
+<svg width="1360" height="480" viewBox="0 0 680 240" xmlns="http://www.w3.org/2000/svg">
+<title>Symba</title>
+<desc>Geometric amber lion head with a fan-out mane of spokes and nodes, beside the wordmark Symba and the tagline a durable job execution engine.</desc>
+<rect x="0" y="0" width="680" height="240" rx="16" fill="#17130D"/>
+<rect x="0.5" y="0.5" width="679" height="239" rx="16" fill="none" stroke="#2E2617" stroke-width="1"/>
+<g stroke="#B85C1F" stroke-width="4" stroke-linecap="round">
+<line x1="176" y1="110" x2="198" y2="110"/>
+<line x1="159.6" y1="149.6" x2="175.2" y2="165.2"/>
+<line x1="120" y1="166" x2="120" y2="188"/>
+<line x1="80.4" y1="149.6" x2="64.8" y2="165.2"/>
+<line x1="64" y1="110" x2="42" y2="110"/>
+<line x1="80.4" y1="70.4" x2="64.8" y2="54.8"/>
+<line x1="120" y1="54" x2="120" y2="32"/>
+<line x1="159.6" y1="70.4" x2="175.2" y2="54.8"/>
+</g>
+<g fill="#F0A737">
+<circle cx="198" cy="110" r="5"/><circle cx="175.2" cy="165.2" r="5"/><circle cx="120" cy="188" r="5"/><circle cx="64.8" cy="165.2" r="5"/><circle cx="42" cy="110" r="5"/><circle cx="64.8" cy="54.8" r="5"/><circle cx="120" cy="32" r="5"/><circle cx="175.2" cy="54.8" r="5"/>
+</g>
+<polygon points="92,70 101,52 113,67" fill="#B85C1F"/>
+<polygon points="148,70 139,52 127,67" fill="#B85C1F"/>
+<polygon points="120,62 156,80 152,122 120,144 88,122 84,80" fill="#F0A737"/>
+<rect x="100" y="99" width="12" height="7" fill="#17130D"/>
+<rect x="128" y="99" width="12" height="7" fill="#17130D"/>
+<polygon points="107,120 133,120 120,141" fill="#17130D"/>
+<g stroke="#EDE4D3" stroke-width="13" fill="none" stroke-linecap="butt" stroke-linejoin="miter">
+<path d="M 274 78 H 230 V 110 H 274 V 142 H 230"/>
+<path d="M 290 78 L 312 107 L 334 78 M 312 107 V 142"/>
+<path d="M 350 142 V 78 L 372 106 L 394 78 V 142"/>
+<path d="M 410 78 V 142 M 410 78 H 438 L 454 92 L 454 98 L 438 110 H 410 M 410 110 H 440 L 456 124 L 456 130 L 440 142 H 410"/>
+<path d="M 470 142 L 492 78 L 514 142 M 479 116 H 505"/>
+</g>
+<text x="232" y="176" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" letter-spacing="4" fill="#C9B896">A DURABLE JOB EXECUTION ENGINE</text>
+</svg>

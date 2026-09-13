@@ -1,0 +1,203 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: '0.11'
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv lock --check
+      - run: uv sync --frozen --all-extras --python 3.13
+      - run: uv run --no-sync ruff check src tests tools
+      - run: uv run --no-sync ruff format --check src tests tools
+
+  typecheck:
+    name: Typecheck (pyright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --frozen --all-extras --python 3.13
+      - run: uv run --no-sync pyright
+
+  unit:
+    name: Unit (Python ${{ matrix.python }}, ${{ matrix.deps }}, Redis ${{ matrix.redis }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+        deps: [locked]
+        redis: [absent]
+        include:
+          - {python: '3.11', deps: minimum, redis: absent}
+          - {python: '3.13', deps: locked, redis: '5'}
+          - {python: '3.13', deps: locked, redis: '8'}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Install locked dependencies
+        if: matrix.deps == 'locked'
+        run: uv sync --frozen --all-extras --python ${{ matrix.python }}
+      - name: Resolve minimum direct dependencies
+        if: matrix.deps == 'minimum'
+        run: uv sync --all-extras --resolution lowest-direct --upgrade --python ${{ matrix.python }}
+      - name: Exercise absence of Redis
+        if: matrix.redis == 'absent'
+        run: uv pip uninstall redis
+      - name: Exercise requested Redis major
+        if: matrix.redis != 'absent'
+        run: uv pip install 'redis~=${{ matrix.redis }}.0'
+      - name: Record effective environment
+        run: uv pip freeze
+      - name: Unit and in-memory conformance tests
+        # --no-sync preserves the tested minimum resolution / optional dependency state.
+        run: uv run --no-sync pytest tests/unit tests/conformance -q
+
+  stub-check:
+    name: Proto stub drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --frozen --all-extras --python 3.13
+      - name: Verify every generated Python and typing file
+        run: uv run --no-sync python tools/generate_proto.py --check
+
+  integration:
+    name: Engine compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      SYMBA_E2E_TARGET: grpc://127.0.0.1:7233
+      SYMBA_CHECKPOINT_REDIS_URL: redis://127.0.0.1:6379/0
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Read tested engine revision
+        id: engine
+        run: |
+          ref=$(cat src/symba/_proto/ENGINE_REF)
+          [[ "$ref" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: syntel-technologies/symba
+          ref: ${{ steps.engine.outputs.ref }}
+          path: engine-source
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --frozen --all-extras --python 3.13
+      - name: Start the actual pinned engine, PostgreSQL and Redis
+        working-directory: engine-source
+        run: docker compose up --build -d --wait symba-engine
+      - name: Run live-engine tests and conformance
+        run: uv run --no-sync pytest tests/conformance -q --junitxml=conformance.xml
+      - name: Require live-engine cases to execute successfully
+        run: |
+          python3 - <<'PYCODE'
+          from xml.etree import ElementTree as ET
+          cases = [case for case in ET.parse("conformance.xml").iter("testcase") if "[engine]" in case.attrib.get("name", "")]
+          assert len(cases) >= 8, "Expected at least eight live-engine conformance cases"
+          assert all(not list(case) or all(child.tag not in {"skipped", "failure", "error"} for child in case) for case in cases), "A live-engine case failed or was skipped"
+          PYCODE
+      - name: Engine diagnostics
+        if: failure()
+        working-directory: engine-source
+        run: docker compose logs --tail=150 symba-engine symba-flyway
+      - name: Stop isolated CI services
+        if: always()
+        working-directory: engine-source
+        run: docker compose down --volumes
+
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv build
+      - run: uvx --from twine==7.0.0 twine check dist/*
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sdk-distributions
+          path: dist/*
+          retention-days: 7
+
+  repository-hygiene:
+    name: Workflow and secret checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install checksum-pinned quality tools
+        run: |
+          mkdir -p "$RUNNER_TEMP/quality-tools"
+          cd "$RUNNER_TEMP/quality-tools"
+          curl --fail --silent --show-error --location "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz" --output "gitleaks_8.30.1_linux_x64.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks_8.30.1_linux_x64.tar.gz" | sha256sum --check --strict
+          tar -xzf "gitleaks_8.30.1_linux_x64.tar.gz" gitleaks
+          curl --fail --silent --show-error --location "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz" --output "actionlint_1.7.12_linux_amd64.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint_1.7.12_linux_amd64.tar.gz" | sha256sum --check --strict
+          tar -xzf "actionlint_1.7.12_linux_amd64.tar.gz" actionlint
+      - name: Validate all GitHub workflows
+        run: '"$RUNNER_TEMP/quality-tools/actionlint" -shellcheck=""'
+      - name: Scan committed history without revealing secret values
+        run: '"$RUNNER_TEMP/quality-tools/gitleaks" git --redact --no-banner'
+
+  required-checks:
+    name: Required checks
+    if: always()
+    needs: [lint, typecheck, unit, stub-check, integration, build, repository-hygiene]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PYCODE'
+          import json, os, sys
+          failed = {name: job['result'] for name, job in json.loads(os.environ['RESULTS']).items() if job['result'] != 'success'}
+          if failed:
+              sys.exit(f'Required checks did not succeed: {failed}')
+          PYCODE

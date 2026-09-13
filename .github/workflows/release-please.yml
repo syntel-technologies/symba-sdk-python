@@ -1,0 +1,62 @@
+name: Release automation
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please-main
+  cancel-in-progress: false
+
+jobs:
+  release-pr:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Require the successful CI revision to still be main
+        id: current
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: 'main'});
+            core.setOutput('matches', branch.commit.sha === context.payload.workflow_run.head_sha);
+      - name: Explain pending bot activation
+        if: steps.current.outputs.matches == 'true' && vars.RELEASE_APP_CLIENT_ID == ''
+        run: echo 'Release automation awaits the GitHub App setup documented in docs/releasing.md.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Create repository-scoped release bot token
+        id: bot
+        if: steps.current.outputs.matches == 'true' && vars.RELEASE_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+      - name: Propose version and notes, or tag an approved release PR
+        if: steps.current.outputs.matches == 'true' && vars.RELEASE_APP_CLIENT_ID != ''
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        with:
+          token: ${{ steps.bot.outputs.token }}
+          target-branch: main
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+      - name: Open a main-to-dev synchronization PR when needed
+        if: steps.current.outputs.matches == 'true' && vars.RELEASE_APP_CLIENT_ID != ''
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          github-token: ${{ steps.bot.outputs.token }}
+          script: |
+            const {data: diff} = await github.rest.repos.compareCommitsWithBasehead({...context.repo, basehead: 'dev...main'});
+            if (diff.ahead_by === 0) return;
+            const {data: existing} = await github.rest.pulls.list({...context.repo, state: 'open', head: `${context.repo.owner}:main`, base: 'dev'});
+            if (existing.length) return;
+            await github.rest.pulls.create({...context.repo, head: 'main', base: 'dev', title: 'chore: synchronize released versions into dev', body: 'Merge main back into dev to preserve the reviewed release metadata and ancestry. Use a merge commit; resolve any conflicts without rewriting either branch.'});
