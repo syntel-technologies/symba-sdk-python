@@ -15,5 +15,8 @@ updates:
     target-branch: dev
     open-pull-requests-limit: 5
     groups:
+      grpc-toolchain:
+        patterns: ['grpcio*', 'protobuf']
+        update-types: [minor, patch]
       compatible-python:
         update-types: [minor, patch]

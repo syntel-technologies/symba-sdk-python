@@ -42,7 +42,7 @@ prints the SDK version, proto version, and target so you can confirm a pairing b
 ## Python & dependency support
 
 - **Python:** 3.11 – 3.14 (see `requires-python` in [`pyproject.toml`](pyproject.toml)).
-- **Runtime deps:** declared as ranges (`grpcio>=1.82.1,<2.0`, `protobuf>=7.35,<8.0`,
+- **Runtime deps:** declared as ranges (`grpcio>=1.83.1,<2.0`, `protobuf>=7.35.1,<8.0`,
   `pydantic>=2.7,<3.0`, `structlog>=24.1,<27.0`, `tenacity>=8.3,<10.0`). CI tests the min and
   latest of each range.
 - **Optional extras:** `redis>=5.0,<9.0` (checkpoint fast path), `typer`/`rich` (CLI). CI runs the
@@ -53,3 +53,9 @@ prints the SDK version, proto version, and target so you can confirm a pairing b
 Stubs are committed so the package installs without a proto toolchain. Maintainers regenerate them
 from the engine's `proto/` with `make proto-gen` (see the [`Makefile`](Makefile)); CI's
 `stub-check` job fails if the committed stubs drift from the immutable engine commit recorded in `src/symba/_proto/ENGINE_REF`.
+
+The generator is pinned to `grpcio-tools==1.83.1` for reproducible output. A compiler
+upgrade must regenerate the committed Python and typing stubs and update runtime
+minimums to the versions required by that output in the same PR. Runtime package
+versions, compiler versions and the wire protocol version are separate contracts;
+this compiler update does not change the engine protocol or its immutable CI pin.

@@ -19,11 +19,11 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    # Floors match the committed gencode (protobuf 7.35.0 / grpcio 1.82.1); a host
+    # Floors match the committed gencode (protobuf 7.35.1 / grpcio 1.83.1); a host
     # project's transitive resolution must not land below them or the generated
     # stubs raise at import (PKG-1). Keep in lockstep when regenerating stubs.
-    "grpcio>=1.82.1,<2.0",
-    "protobuf>=7.35,<8.0",
+    "grpcio>=1.83.1,<2.0",
+    "protobuf>=7.35.1,<8.0",
     "pydantic>=2.7,<3.0",
     "pydantic-settings>=2.3,<3.0",
     "structlog>=24.1,<27.0",
@@ -44,7 +44,7 @@ Engine = "https://github.com/syntel-technologies/symba"
 
 [dependency-groups]
 dev = [
-    "grpcio-tools>=1.82.1,<2.0",
+    "grpcio-tools==1.83.1",
     "ruff==0.16.6",
     "pyright==1.1.414",
     "pytest>=9.0,<10.0",
