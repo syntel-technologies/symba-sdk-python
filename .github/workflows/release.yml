@@ -1,72 +1,89 @@
 name: Release
-
 on:
   push:
-    tags: ["v*"]
-
+    tags: ['v*']
+permissions:
+  contents: read
 concurrency:
-  group: release-${{ github.ref }}
+  group: publish-${{ github.ref }}
   cancel-in-progress: false
-
-env:
-  UV_FROZEN: "1"
-
 jobs:
-  build:
-    name: Build distributions
+  validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Require a stable version from reviewed main history
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          python3 - <<'PYCODE'
+          import os, tomllib
+          from pathlib import Path
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          assert os.environ['GITHUB_REF_NAME'] == f'v{version}', 'Tag/package version mismatch'
+          PYCODE
+      - name: Require the reviewed changelog release
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const {data: release} = await github.rest.repos.getReleaseByTag({...context.repo, tag: context.ref.replace('refs/tags/', '')});
+            if (release.draft || release.prerelease || !release.body) core.setFailed('A published stable release with reviewed notes is required.');
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: [validate, ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
-          enable-cache: true
-      - name: Verify tag matches package version
-        run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          PKG=$(uv run python -c "import symba; print(symba.__version__)")
-          if [ "$TAG" != "$PKG" ]; then
-            echo "::error::tag v$TAG does not match package version $PKG"; exit 1
-          fi
+          version: '0.11'
       - run: uv build
-      - name: Validate distribution metadata
-        run: |
-          uv pip install --system twine
-          twine check dist/*
+      - run: uvx --from twine==6.2.0 twine check dist/*
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: dist
+          name: release-distributions
           path: dist/*
-
-  changelog:
-    name: Build changelog (towncrier)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - name: Attach distributions to the existing release
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
-          enable-cache: true
-      - name: Assemble release notes from fragments
-        run: |
-          uv pip install --system towncrier
-          if [ -d changelog.d ]; then
-            towncrier build --yes --version "${GITHUB_REF_NAME#v}" || true
-          else
-            echo "no changelog.d/ fragments — skipping towncrier"
-          fi
-
+          script: |
+            const fs = require('node:fs');
+            const {data: release} = await github.rest.repos.getReleaseByTag({...context.repo, tag: context.ref.replace('refs/tags/', '')});
+            const {data: assets} = await github.rest.repos.listReleaseAssets({...context.repo, release_id: release.id});
+            for (const name of fs.readdirSync('dist')) {
+              const data = fs.readFileSync(`dist/${name}`);
+              const existing = assets.find(asset => asset.name === name);
+              if (existing) {
+                const prior = await github.rest.repos.getReleaseAsset({...context.repo, asset_id: existing.id, headers: {accept: 'application/octet-stream'}});
+                if (!Buffer.from(prior.data).equals(data)) throw new Error(`Refusing to replace different release asset ${name}`);
+                continue;
+              }
+              await github.rest.repos.uploadReleaseAsset({...context.repo, release_id: release.id, name, data});
+            }
+      - name: Explain PyPI activation status
+        if: vars.PYPI_PUBLISH_ENABLED != 'true'
+        run: echo 'Distributions are attached to GitHub. PyPI publication is disabled until the trusted publisher and project ownership are confirmed; see docs/releasing.md.' >> "$GITHUB_STEP_SUMMARY"
   publish:
-    name: Publish to PyPI (OIDC)
+    needs: build
+    if: vars.PYPI_PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-latest
-    needs: [build]
+    timeout-minutes: 10
     environment:
       name: pypi
       url: https://pypi.org/project/symba/
     permissions:
-      id-token: write # OIDC trusted publisher — no API token stored
+      id-token: write
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: dist
+          name: release-distributions
           path: dist
-      - name: Publish
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1

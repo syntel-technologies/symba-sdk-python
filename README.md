@@ -366,3 +366,7 @@ See the [`Makefile`](Makefile) for proto regeneration (`make proto-gen`) and oth
 ## License
 
 Apache-2.0. See [`LICENSE`](LICENSE).
+
+## Development and releases
+
+See [Contributing](CONTRIBUTING.md), [the release workflow](docs/releasing.md), and [Security](SECURITY.md). Development targets `dev`; `main` requires a reviewed PR.
