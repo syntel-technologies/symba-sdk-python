@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .errors import ConfigError
-from .profiles import PROFILE_DEFAULTS, Profile, coerce_profile
+from .profiles import ENGINE_DEFAULT_IO_LEASE_TTL_S, PROFILE_DEFAULTS, Profile, coerce_profile
 from .types import RetryPolicy
 
 if TYPE_CHECKING:
@@ -172,10 +172,22 @@ class TaskRegistry:
     def _validate_timeout_lease(task: RegisteredTask, heartbeat_interval_s: float) -> None:
         timeout = task.effective_timeout_s
         lease = task.effective_lease_ttl_s
-        if timeout is not None and lease is not None and timeout >= lease * 10:
+        # An io task with no explicit lease inherits the engine default (~60s).
+        # Make that lease knowable to validation so a long timeout_s under the
+        # short engine lease fails fast at boot instead of causing a silent
+        # runtime duplicate-dispatch (SDK-7).
+        effective_lease = lease if lease is not None else ENGINE_DEFAULT_IO_LEASE_TTL_S
+        if timeout is not None and timeout >= effective_lease * 10:
+            fix = (
+                f"lease_ttl_s={lease}"
+                if lease is not None
+                else f"the engine-default io lease (~{ENGINE_DEFAULT_IO_LEASE_TTL_S}s)"
+            )
             raise ConfigError(
-                f"task {task.name!r} has timeout_s={timeout} >= lease_ttl_s*10 ({lease * 10}); "
-                f"this is almost always a unit mistake"
+                f"task {task.name!r} has timeout_s={timeout} >= lease_ttl_s*10 "
+                f"({effective_lease * 10}, using {fix}); a long-running task under a short "
+                f"lease will be reclaimed mid-run and dispatched as a duplicate. Set "
+                f"lease_ttl_s >= timeout_s for long-running tasks, or split the work"
             )
         if lease is not None and heartbeat_interval_s > lease / 3:
             raise ConfigError(

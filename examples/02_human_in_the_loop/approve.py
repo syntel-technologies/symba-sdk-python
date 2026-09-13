@@ -14,7 +14,7 @@ from symba import Engine
 
 
 async def main(ticket_id: str) -> None:
-    async with Engine("grpc://localhost:7233", tenant="acme") as engine:
+    async with Engine("grpc://localhost:7233", tenant="default") as engine:
         delivered = await engine.signal(
             f"approve:{ticket_id}",
             {"approved": True, "reviewer": "reviewer@acme.co"},

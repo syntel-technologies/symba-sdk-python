@@ -43,6 +43,17 @@ class WorkerSettings(BaseModel):
     name: str | None = None
     #: ``None`` lets the profile decide (spec 11); an explicit value always wins.
     slots: int | None = Field(default=None, ge=1)
+    #: Size of the cpu-profile forkserver pool (spec 11.1). This is separate
+    #: from the await-bound worker slot budget because each CPU slot is an OS
+    #: subprocess that may load model weights.
+    cpu_slots: int | None = Field(default=None, ge=1)
+    #: Recycle a CPU subprocess after this many completed jobs. ``None`` keeps
+    #: processes alive until worker shutdown.
+    cpu_max_jobs_per_process: int | None = Field(default=None, ge=1)
+    #: Poll interval for an optional host-supplied admission-control callback.
+    admission_poll_s: float = Field(default=1.0, gt=0)
+    #: Optional file touched by the event loop for external liveness probes.
+    liveness_file: str | None = None
     tags: list[str] = Field(default_factory=list)
     drain_timeout_s: float = Field(default=30.0, ge=0)
     heartbeat_interval_s: float = Field(default=15.0, gt=0)

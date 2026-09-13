@@ -71,6 +71,9 @@ class GateRecord:
     on_complete: common_pb2.JobSpec | None
     continuation_task: str | None
     fired: bool = False
+    #: True when the gate fired but its policy was NOT satisfied (e.g. all_success
+    #: with a DEAD child); the continuation is blocked and on_failure ran instead.
+    failed: bool = False
     continuation_job_id: str | None = None
 
 

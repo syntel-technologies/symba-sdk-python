@@ -14,6 +14,7 @@ against the dockerized engine via the conformance corpus.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from symba import _json
@@ -42,6 +43,28 @@ _log = get_logger(component="symbatest")
 _DEFAULT_MAX_ATTEMPTS = 3
 
 
+@dataclass(slots=True)
+class _ForcedFailure:
+    """A harness-injected failure for a task (spec 20.2).
+
+    ``retryable=True`` + ``remaining=1`` reproduces the classic one-shot
+    ``fail_next``. ``retryable=False`` drives a task to DEAD in one attempt.
+    ``remaining=None`` (via ``fail_always``) fails every completion until cleared.
+    """
+
+    reason: str
+    retryable: bool
+    remaining: int | None  # None => unbounded
+
+    def consume(self) -> None:
+        if self.remaining is not None:
+            self.remaining -= 1
+
+    @property
+    def exhausted(self) -> bool:
+        return self.remaining is not None and self.remaining <= 0
+
+
 class SymbaTest:
     """In-memory engine + client facade for tests (spec 20.1, 20.2)."""
 
@@ -57,8 +80,10 @@ class SymbaTest:
         self._middleware: list[Any] = [LoggingMiddleware()]
         #: job_ids for which a cancel was requested (cooperative, surfaced via Heartbeat).
         self._cancel_requested: set[str] = set()
-        #: one-shot forced failures keyed by task name (spec 20.2 fail_next).
-        self._forced_failures: dict[str, str] = {}
+        #: forced failures keyed by task name (spec 20.2 fail_next / fail_always).
+        #: value = (reason, retryable, remaining) where remaining is None for an
+        #: unbounded fail_always and a countdown otherwise.
+        self._forced_failures: dict[str, _ForcedFailure] = {}
         #: id of the job the current dispatch is running, so Wait/GetResult resolve locally.
         self._current_job_id: str | None = None
         self._lease_seq = 0
@@ -249,14 +274,19 @@ class SymbaTest:
         record = self._store.jobs.get(job_id)
         if record is None:
             return
-        # fail_next(): the handler ran fine, but the harness forces one retryable failure.
-        if record.spec.task_name in self._forced_failures:
-            reason = self._forced_failures.pop(record.spec.task_name)
+        # fail_next / fail_always: the handler ran fine, but the harness forces a
+        # failure. retryable controls whether the task can recover; remaining bounds
+        # how many completions are forced (None => every one).
+        forced = self._forced_failures.get(record.spec.task_name)
+        if forced is not None:
+            forced.consume()
+            if forced.exhausted:
+                del self._forced_failures[record.spec.task_name]
             self._on_fail(
                 job_id,
                 error_type="ForcedFailure",
-                error_message=reason,
-                retryable=True,
+                error_message=forced.reason,
+                retryable=forced.retryable,
             )
             return
         record.result = result_json
@@ -312,6 +342,11 @@ class SymbaTest:
         del next_spec.chain[:]
         del next_spec.depends_on[:]
         next_spec.payload_json = b""
+        # Match the real engine: rate classes govern starts of the explicitly
+        # submitted job only. Implicit DB/apply tails do not spend provider
+        # quota; a provider-calling continuation must be submitted explicitly
+        # with its own rate_class.
+        next_spec.rate_class = ""
         next_id = self._store.new_job_id()
         next_spec.ctx_id = record.spec.ctx_id or record.id
         upstream = [
@@ -342,17 +377,45 @@ class SymbaTest:
 
     # ------------------------------------------------------------ fan-out gate
     def _maybe_fire_gate(self, gate_id: str) -> None:
-        """Fire the continuation exactly once when every child is terminal (spec 7.2)."""
+        """Settle the gate; fire the continuation once the policy is satisfied (spec 7.2).
+
+        Policy fidelity matches the engine's ``bump_gate.sql`` thresholds (FE-1):
+
+            all_success   -> succeeded == expected
+            all_terminal  -> every child terminal
+            quorum(n)     -> succeeded >= min(n, expected)
+
+        A gate whose policy can never be met (e.g. ``all_success`` with a DEAD
+        child) does NOT fire ``on_complete``; instead it enqueues the
+        continuation's ``on_failure`` if one is declared, and always exposes the
+        outcome via :meth:`_gate_status`.
+        """
         gate = self._store.gates.get(gate_id)
         if gate is None or gate.fired:
             return
         children = [self._store.jobs[c] for c in gate.child_ids if c in self._store.jobs]
         if any(not c.state.is_terminal for c in children):
+            return  # not every child is terminal yet
+        succeeded = [c for c in children if c.state == JobState.SUCCEEDED and not c.skipped]
+        # A SKIP is a non-failure: it neither succeeds nor blocks a gate (spec 7.2).
+        # The engine's bump_gate.sql must exclude skips from succeeded_children to
+        # match this — see docs/engine_fixes.md SDK-2 "Skip counting". Only a DEAD
+        # child can fail all_success.
+        failed = [c for c in children if c.state == JobState.DEAD]
+
+        satisfied = self._gate_policy_satisfied(
+            gate.gate_policy, len(children), len(succeeded), len(failed)
+        )
+        if not satisfied:
+            # Policy can no longer be met (all children terminal, threshold unmet).
+            gate.fired = True
+            gate.failed = True
+            self._fire_gate_on_failure(gate)
             return
+
         gate.fired = True
         if gate.on_complete is None:
             return
-        succeeded = [c for c in children if c.state == JobState.SUCCEEDED and not c.skipped]
         results = [
             {"job_id": c.id, "task": c.spec.task_name, "result": self._decode(c.result)}
             for c in succeeded
@@ -361,16 +424,52 @@ class SymbaTest:
         cont_spec.CopyFrom(gate.on_complete)
         cont_spec.ctx_id = gate.ctx_id
         cont_spec.group_key = gate.id
+        # SDK-2: preserve the caller's on_complete payload; deliver the gate
+        # manifest under the reserved ``__gate__`` key (the shape the real engine
+        # must also ship — see docs/engine_fixes.md).
+        caller_payload = self._decode(gate.on_complete.payload_json)
+        if not isinstance(caller_payload, dict):
+            caller_payload = {}
         cont_spec.payload_json = _json.dumps(
             {
-                "gate_id": gate.id,
-                "results": results,
-                "expected": len(children),
-                "succeeded": len(succeeded),
+                **caller_payload,
+                "__gate__": {
+                    "gate_id": gate.id,
+                    "results": results,
+                    "expected": len(children),
+                    "succeeded": len(succeeded),
+                },
             }
         )
         cont_id, _ = self._enqueue(cont_spec, tenant=self.tenant)
         gate.continuation_job_id = cont_id
+
+    @staticmethod
+    def _gate_policy_satisfied(policy: str, expected: int, succeeded: int, failed: int) -> bool:
+        """Evaluate a gate policy over terminal child counts (mirrors bump_gate.sql).
+
+        A SKIPPED child counts as neither succeeded nor failed, so ``all_success``
+        is satisfied as long as NO child failed (all-skipped still fires); a
+        ``quorum(n)`` needs ``n`` genuine successes.
+        """
+        if policy == "all_success":
+            return failed == 0
+        if policy == "all_terminal":
+            return True  # caller only invokes this once every child is terminal
+        if policy.startswith("quorum(") and policy.endswith(")"):
+            n = int(policy[len("quorum(") : -1])
+            return succeeded >= min(n, expected)
+        raise ValueError(f"unknown gate policy {policy!r}")
+
+    def _fire_gate_on_failure(self, gate: GateRecord) -> None:
+        """Enqueue the continuation's ``on_failure`` when a gate cannot satisfy its policy."""
+        if gate.on_complete is None or not gate.on_complete.HasField("on_failure"):
+            return
+        failure_spec = common_pb2.JobSpec()
+        failure_spec.CopyFrom(gate.on_complete.on_failure)
+        failure_spec.ctx_id = gate.ctx_id
+        failure_spec.group_key = gate.id
+        self._enqueue(failure_spec, tenant=self.tenant)
 
     def _gate_math(self, gate: GateRecord) -> tuple[int, int, int]:
         children = [self._store.jobs[c] for c in gate.child_ids if c in self._store.jobs]
@@ -618,9 +717,14 @@ class SymbaTest:
         gate = self._store.gates.get(gate_id)
         if gate is None:
             raise JobFailed(f"unknown gate {gate_id}")
-        while gate.continuation_job_id is None:
+        while gate.continuation_job_id is None and not gate.failed:
             if not await self.tick() and not self._advance_to_next_backoff():
                 break
+        if gate.failed:
+            raise JobFailed(
+                f"gate {gate_id} did not satisfy policy {gate.gate_policy!r}; "
+                f"the continuation was blocked (a child did not succeed)"
+            )
         if gate.continuation_job_id is None:
             raise JobFailed(f"gate {gate_id} never fired its continuation")
         return await self._await_job(gate.continuation_job_id, timeout)
@@ -651,9 +755,33 @@ class SymbaTest:
         """The fake clock; ``clock.advance(seconds)`` fast-forwards backoff (spec 20.2)."""
         return self._store.clock
 
-    def fail_next(self, task_name: str, *, reason: str = "forced failure") -> None:
-        """Force the next completion of ``task_name`` to fail retryably once (spec 20.2)."""
-        self._forced_failures[task_name] = reason
+    def fail_next(
+        self, task_name: str, *, reason: str = "forced failure", retryable: bool = True
+    ) -> None:
+        """Force the NEXT completion of ``task_name`` to fail once (spec 20.2).
+
+        ``retryable=True`` (default) recovers on the next attempt when
+        ``max_attempts > 1`` — the classic one-shot. ``retryable=False`` drives the
+        task straight to DEAD in a single attempt, which is the only way to reach a
+        DEAD child through a gate deterministically (FE-2).
+        """
+        self._forced_failures[task_name] = _ForcedFailure(
+            reason=reason, retryable=retryable, remaining=1
+        )
+
+    def fail_always(
+        self, task_name: str, *, times: int | None = None, reason: str = "forced failure"
+    ) -> None:
+        """Force ``task_name`` to fail retryably on every completion (spec 20.2).
+
+        With the task's ``max_attempts`` exhausted the job reaches DEAD. ``times``
+        bounds how many completions are forced; ``None`` forces every completion
+        until cleared. This is the deterministic path to a DEAD job for tasks whose
+        ``max_attempts > 1`` (FE-2).
+        """
+        self._forced_failures[task_name] = _ForcedFailure(
+            reason=reason, retryable=True, remaining=times
+        )
 
     # ------------------------------------------------------- context manager
     async def __aenter__(self) -> SymbaTest:

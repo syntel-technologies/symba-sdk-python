@@ -602,8 +602,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "grpcio", specifier = ">=1.66,<2.0" },
-    { name = "protobuf", specifier = ">=5.29,<8.0" },
+    { name = "grpcio", specifier = ">=1.82.1,<2.0" },
+    { name = "protobuf", specifier = ">=7.35,<8.0" },
     { name = "pydantic", specifier = ">=2.7,<3.0" },
     { name = "pydantic-settings", specifier = ">=2.3,<3.0" },
     { name = "redis", marker = "extra == 'redis'", specifier = ">=5.0,<9.0" },
@@ -616,7 +616,7 @@ provides-extras = ["redis", "cli"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "grpcio-tools", specifier = ">=1.66,<2.0" },
+    { name = "grpcio-tools", specifier = ">=1.82.1,<2.0" },
     { name = "hypothesis", specifier = ">=6.156,<7.0" },
     { name = "pyright", specifier = "==1.1.411" },
     { name = "pytest", specifier = ">=9.0,<10.0" },

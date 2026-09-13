@@ -1,7 +1,7 @@
 import datetime
 
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from simba.v1 import common_pb2 as _common_pb2
+from symba.v1 import common_pb2 as _common_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -9,6 +9,28 @@ from collections.abc import Iterable as _Iterable, Mapping as _Mapping
 from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class GetGateRequest(_message.Message):
+    __slots__ = ("tenant", "gate_id")
+    TENANT_FIELD_NUMBER: _ClassVar[int]
+    GATE_ID_FIELD_NUMBER: _ClassVar[int]
+    tenant: str
+    gate_id: str
+    def __init__(self, tenant: _Optional[str] = ..., gate_id: _Optional[str] = ...) -> None: ...
+
+class GateStatus(_message.Message):
+    __slots__ = ("gate_id", "expected", "terminal", "succeeded", "fired_at")
+    GATE_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPECTED_FIELD_NUMBER: _ClassVar[int]
+    TERMINAL_FIELD_NUMBER: _ClassVar[int]
+    SUCCEEDED_FIELD_NUMBER: _ClassVar[int]
+    FIRED_AT_FIELD_NUMBER: _ClassVar[int]
+    gate_id: str
+    expected: int
+    terminal: int
+    succeeded: int
+    fired_at: _timestamp_pb2.Timestamp
+    def __init__(self, gate_id: _Optional[str] = ..., expected: _Optional[int] = ..., terminal: _Optional[int] = ..., succeeded: _Optional[int] = ..., fired_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class SubmitRequest(_message.Message):
     __slots__ = ("tenant", "specs")
@@ -49,7 +71,7 @@ class FanOutResponse(_message.Message):
     def __init__(self, child_job_ids: _Optional[_Iterable[str]] = ..., gate_id: _Optional[str] = ...) -> None: ...
 
 class QueryRequest(_message.Message):
-    __slots__ = ("tenant", "ctx_id", "state", "task_name", "pipeline", "stage", "group_key", "created_after", "page_size", "page_token")
+    __slots__ = ("tenant", "ctx_id", "state", "task_name", "pipeline", "stage", "group_key", "created_after", "page_size", "page_token", "parent_gate_id")
     TENANT_FIELD_NUMBER: _ClassVar[int]
     CTX_ID_FIELD_NUMBER: _ClassVar[int]
     STATE_FIELD_NUMBER: _ClassVar[int]
@@ -60,6 +82,7 @@ class QueryRequest(_message.Message):
     CREATED_AFTER_FIELD_NUMBER: _ClassVar[int]
     PAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    PARENT_GATE_ID_FIELD_NUMBER: _ClassVar[int]
     tenant: str
     ctx_id: str
     state: _common_pb2.JobState
@@ -70,7 +93,8 @@ class QueryRequest(_message.Message):
     created_after: _timestamp_pb2.Timestamp
     page_size: int
     page_token: str
-    def __init__(self, tenant: _Optional[str] = ..., ctx_id: _Optional[str] = ..., state: _Optional[_Union[_common_pb2.JobState, str]] = ..., task_name: _Optional[str] = ..., pipeline: _Optional[str] = ..., stage: _Optional[str] = ..., group_key: _Optional[str] = ..., created_after: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., page_size: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+    parent_gate_id: str
+    def __init__(self, tenant: _Optional[str] = ..., ctx_id: _Optional[str] = ..., state: _Optional[_Union[_common_pb2.JobState, str]] = ..., task_name: _Optional[str] = ..., pipeline: _Optional[str] = ..., stage: _Optional[str] = ..., group_key: _Optional[str] = ..., created_after: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., page_size: _Optional[int] = ..., page_token: _Optional[str] = ..., parent_gate_id: _Optional[str] = ...) -> None: ...
 
 class QueryResponse(_message.Message):
     __slots__ = ("jobs", "next_page_token")
@@ -145,9 +169,11 @@ class ResubmitRequest(_message.Message):
     def __init__(self, tenant: _Optional[str] = ..., job_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class StreamEventsRequest(_message.Message):
-    __slots__ = ("tenant", "ctx_id")
+    __slots__ = ("tenant", "ctx_id", "snapshot")
     TENANT_FIELD_NUMBER: _ClassVar[int]
     CTX_ID_FIELD_NUMBER: _ClassVar[int]
+    SNAPSHOT_FIELD_NUMBER: _ClassVar[int]
     tenant: str
     ctx_id: str
-    def __init__(self, tenant: _Optional[str] = ..., ctx_id: _Optional[str] = ...) -> None: ...
+    snapshot: bool
+    def __init__(self, tenant: _Optional[str] = ..., ctx_id: _Optional[str] = ..., snapshot: _Optional[bool] = ...) -> None: ...

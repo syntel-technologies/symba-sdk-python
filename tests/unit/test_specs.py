@@ -104,3 +104,24 @@ def test_unknown_submit_key_rejected():
 def test_empty_task_rejected():
     with pytest.raises(SymbaError):
         build_job_spec(task="")
+
+
+def test_chain_head_mismatch_rejected():
+    """SDK-1: a continuation with task != chain[0] is an ambiguous DAG."""
+    with pytest.raises(SymbaError) as exc:
+        spec_from_dict({"task": "A", "chain": ["B", "C"]})
+    assert "ambiguous continuation" in str(exc.value)
+
+
+def test_chain_head_matching_task_allowed():
+    """SDK-1: leading the chain with the task itself is the sanctioned shape."""
+    spec = spec_from_dict({"task": "A", "chain": ["A", "B"]})
+    assert spec.task_name == "A"
+    assert list(spec.chain) == ["A", "B"]
+
+
+def test_chain_only_still_builds():
+    """SDK-1 must not regress the plain chain=[head, tail] submit path."""
+    spec = build_job_spec(task="A", chain=["A", "B"])
+    assert spec.task_name == "A"
+    assert list(spec.chain) == ["A", "B"]

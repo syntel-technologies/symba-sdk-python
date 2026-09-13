@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . import admin_pb2 as simba_dot_v1_dot_admin__pb2
+from . import admin_pb2 as symba_dot_v1_dot_admin__pb2
 
 GRPC_GENERATED_VERSION = '1.82.1'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in simba/v1/admin_pb2_grpc.py depends on'
+        + ' but the generated code in symba/v1/admin_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -37,34 +37,39 @@ class AdminServiceStub:
             channel: A grpc.Channel.
         """
         self.ListRateClasses = channel.unary_unary(
-                '/simba.v1.AdminService/ListRateClasses',
-                request_serializer=simba_dot_v1_dot_admin__pb2.ListRateClassesRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_admin__pb2.ListRateClassesResponse.FromString,
+                '/symba.v1.AdminService/ListRateClasses',
+                request_serializer=symba_dot_v1_dot_admin__pb2.ListRateClassesRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_admin__pb2.ListRateClassesResponse.FromString,
                 _registered_method=True)
         self.UpsertRateClass = channel.unary_unary(
-                '/simba.v1.AdminService/UpsertRateClass',
-                request_serializer=simba_dot_v1_dot_admin__pb2.RateClass.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_admin__pb2.RateClass.FromString,
+                '/symba.v1.AdminService/UpsertRateClass',
+                request_serializer=symba_dot_v1_dot_admin__pb2.RateClass.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_admin__pb2.RateClass.FromString,
                 _registered_method=True)
         self.ListCronSchedules = channel.unary_unary(
-                '/simba.v1.AdminService/ListCronSchedules',
-                request_serializer=simba_dot_v1_dot_admin__pb2.ListCronRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_admin__pb2.ListCronResponse.FromString,
+                '/symba.v1.AdminService/ListCronSchedules',
+                request_serializer=symba_dot_v1_dot_admin__pb2.ListCronRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_admin__pb2.ListCronResponse.FromString,
                 _registered_method=True)
         self.UpsertCronSchedule = channel.unary_unary(
-                '/simba.v1.AdminService/UpsertCronSchedule',
-                request_serializer=simba_dot_v1_dot_admin__pb2.CronSchedule.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
+                '/symba.v1.AdminService/UpsertCronSchedule',
+                request_serializer=symba_dot_v1_dot_admin__pb2.CronSchedule.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
                 _registered_method=True)
         self.SetCronEnabled = channel.unary_unary(
-                '/simba.v1.AdminService/SetCronEnabled',
-                request_serializer=simba_dot_v1_dot_admin__pb2.SetCronEnabledRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
+                '/symba.v1.AdminService/SetCronEnabled',
+                request_serializer=symba_dot_v1_dot_admin__pb2.SetCronEnabledRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
+                _registered_method=True)
+        self.DeleteCronSchedule = channel.unary_unary(
+                '/symba.v1.AdminService/DeleteCronSchedule',
+                request_serializer=symba_dot_v1_dot_admin__pb2.DeleteCronRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_admin__pb2.DeleteCronResponse.FromString,
                 _registered_method=True)
         self.ListWorkers = channel.unary_unary(
-                '/simba.v1.AdminService/ListWorkers',
-                request_serializer=simba_dot_v1_dot_admin__pb2.ListWorkersRequest.SerializeToString,
-                response_deserializer=simba_dot_v1_dot_admin__pb2.ListWorkersResponse.FromString,
+                '/symba.v1.AdminService/ListWorkers',
+                request_serializer=symba_dot_v1_dot_admin__pb2.ListWorkersRequest.SerializeToString,
+                response_deserializer=symba_dot_v1_dot_admin__pb2.ListWorkersResponse.FromString,
                 _registered_method=True)
 
 
@@ -103,6 +108,12 @@ class AdminServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def DeleteCronSchedule(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ListWorkers(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -114,39 +125,44 @@ def add_AdminServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ListRateClasses': grpc.unary_unary_rpc_method_handler(
                     servicer.ListRateClasses,
-                    request_deserializer=simba_dot_v1_dot_admin__pb2.ListRateClassesRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_admin__pb2.ListRateClassesResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_admin__pb2.ListRateClassesRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_admin__pb2.ListRateClassesResponse.SerializeToString,
             ),
             'UpsertRateClass': grpc.unary_unary_rpc_method_handler(
                     servicer.UpsertRateClass,
-                    request_deserializer=simba_dot_v1_dot_admin__pb2.RateClass.FromString,
-                    response_serializer=simba_dot_v1_dot_admin__pb2.RateClass.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_admin__pb2.RateClass.FromString,
+                    response_serializer=symba_dot_v1_dot_admin__pb2.RateClass.SerializeToString,
             ),
             'ListCronSchedules': grpc.unary_unary_rpc_method_handler(
                     servicer.ListCronSchedules,
-                    request_deserializer=simba_dot_v1_dot_admin__pb2.ListCronRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_admin__pb2.ListCronResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_admin__pb2.ListCronRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_admin__pb2.ListCronResponse.SerializeToString,
             ),
             'UpsertCronSchedule': grpc.unary_unary_rpc_method_handler(
                     servicer.UpsertCronSchedule,
-                    request_deserializer=simba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
-                    response_serializer=simba_dot_v1_dot_admin__pb2.CronSchedule.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
+                    response_serializer=symba_dot_v1_dot_admin__pb2.CronSchedule.SerializeToString,
             ),
             'SetCronEnabled': grpc.unary_unary_rpc_method_handler(
                     servicer.SetCronEnabled,
-                    request_deserializer=simba_dot_v1_dot_admin__pb2.SetCronEnabledRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_admin__pb2.CronSchedule.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_admin__pb2.SetCronEnabledRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_admin__pb2.CronSchedule.SerializeToString,
+            ),
+            'DeleteCronSchedule': grpc.unary_unary_rpc_method_handler(
+                    servicer.DeleteCronSchedule,
+                    request_deserializer=symba_dot_v1_dot_admin__pb2.DeleteCronRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_admin__pb2.DeleteCronResponse.SerializeToString,
             ),
             'ListWorkers': grpc.unary_unary_rpc_method_handler(
                     servicer.ListWorkers,
-                    request_deserializer=simba_dot_v1_dot_admin__pb2.ListWorkersRequest.FromString,
-                    response_serializer=simba_dot_v1_dot_admin__pb2.ListWorkersResponse.SerializeToString,
+                    request_deserializer=symba_dot_v1_dot_admin__pb2.ListWorkersRequest.FromString,
+                    response_serializer=symba_dot_v1_dot_admin__pb2.ListWorkersResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'simba.v1.AdminService', rpc_method_handlers)
+            'symba.v1.AdminService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('simba.v1.AdminService', rpc_method_handlers)
+    server.add_registered_method_handlers('symba.v1.AdminService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
@@ -169,9 +185,9 @@ class AdminService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.AdminService/ListRateClasses',
-            simba_dot_v1_dot_admin__pb2.ListRateClassesRequest.SerializeToString,
-            simba_dot_v1_dot_admin__pb2.ListRateClassesResponse.FromString,
+            '/symba.v1.AdminService/ListRateClasses',
+            symba_dot_v1_dot_admin__pb2.ListRateClassesRequest.SerializeToString,
+            symba_dot_v1_dot_admin__pb2.ListRateClassesResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -196,9 +212,9 @@ class AdminService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.AdminService/UpsertRateClass',
-            simba_dot_v1_dot_admin__pb2.RateClass.SerializeToString,
-            simba_dot_v1_dot_admin__pb2.RateClass.FromString,
+            '/symba.v1.AdminService/UpsertRateClass',
+            symba_dot_v1_dot_admin__pb2.RateClass.SerializeToString,
+            symba_dot_v1_dot_admin__pb2.RateClass.FromString,
             options,
             channel_credentials,
             insecure,
@@ -223,9 +239,9 @@ class AdminService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.AdminService/ListCronSchedules',
-            simba_dot_v1_dot_admin__pb2.ListCronRequest.SerializeToString,
-            simba_dot_v1_dot_admin__pb2.ListCronResponse.FromString,
+            '/symba.v1.AdminService/ListCronSchedules',
+            symba_dot_v1_dot_admin__pb2.ListCronRequest.SerializeToString,
+            symba_dot_v1_dot_admin__pb2.ListCronResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -250,9 +266,9 @@ class AdminService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.AdminService/UpsertCronSchedule',
-            simba_dot_v1_dot_admin__pb2.CronSchedule.SerializeToString,
-            simba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
+            '/symba.v1.AdminService/UpsertCronSchedule',
+            symba_dot_v1_dot_admin__pb2.CronSchedule.SerializeToString,
+            symba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
             options,
             channel_credentials,
             insecure,
@@ -277,9 +293,36 @@ class AdminService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.AdminService/SetCronEnabled',
-            simba_dot_v1_dot_admin__pb2.SetCronEnabledRequest.SerializeToString,
-            simba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
+            '/symba.v1.AdminService/SetCronEnabled',
+            symba_dot_v1_dot_admin__pb2.SetCronEnabledRequest.SerializeToString,
+            symba_dot_v1_dot_admin__pb2.CronSchedule.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def DeleteCronSchedule(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/symba.v1.AdminService/DeleteCronSchedule',
+            symba_dot_v1_dot_admin__pb2.DeleteCronRequest.SerializeToString,
+            symba_dot_v1_dot_admin__pb2.DeleteCronResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -304,9 +347,9 @@ class AdminService:
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/simba.v1.AdminService/ListWorkers',
-            simba_dot_v1_dot_admin__pb2.ListWorkersRequest.SerializeToString,
-            simba_dot_v1_dot_admin__pb2.ListWorkersResponse.FromString,
+            '/symba.v1.AdminService/ListWorkers',
+            symba_dot_v1_dot_admin__pb2.ListWorkersRequest.SerializeToString,
+            symba_dot_v1_dot_admin__pb2.ListWorkersResponse.FromString,
             options,
             channel_credentials,
             insecure,

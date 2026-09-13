@@ -15,7 +15,10 @@ from symba import Engine
 
 async def main() -> None:
     doc_id = uuid.uuid4().hex[:8]
-    async with Engine("grpc://localhost:7233", tenant="acme") as engine:
+    # The engine's worker-side RPCs (GetResult / checkpoint / wait) run under the
+    # default tenant in this build, so keep the client on "default" too — otherwise
+    # a chained ctx.output.fetch() would look in the wrong tenant and miss the result.
+    async with Engine("grpc://localhost:7233", tenant="default") as engine:
         job = await engine.submit(
             task="parse_content",
             payload={"document_id": doc_id, "staging_ref": f"s3://bucket/{doc_id}"},

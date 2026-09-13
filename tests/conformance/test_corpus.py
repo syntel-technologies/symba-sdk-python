@@ -8,6 +8,10 @@ dockerized engine when ``SYMBA_E2E_TARGET`` is configured.
 
 from __future__ import annotations
 
+import asyncio
+import time
+import uuid
+
 import pytest
 
 from symba import Worker
@@ -60,7 +64,8 @@ async def test_gate_math_counts_success_and_skips(backend_factory):
 
         @w.task("collect")
         async def collect(ctx, payload):
-            return {"succeeded": payload["succeeded"], "expected": payload["expected"]}
+            gate = payload["__gate__"]
+            return {"succeeded": gate["succeeded"], "expected": gate["expected"]}
 
     be = backend_factory(build)
     gate = await be.client.fan_out(
@@ -89,7 +94,8 @@ async def test_gate_all_skipped_still_fires(backend_factory):
 
         @w.task("after")
         async def after(ctx, payload):
-            return {"succeeded": payload["succeeded"], "expected": payload["expected"]}
+            gate = payload["__gate__"]
+            return {"succeeded": gate["succeeded"], "expected": gate["expected"]}
 
     be = backend_factory(build)
     gate = await be.client.fan_out(
@@ -128,16 +134,38 @@ async def test_cancel_running_job_is_cooperative(backend_factory):
     handle = await be.client.submit("cancellable", {})
     outcome = await handle.cancel()
 
-    assert outcome.cancelled is True
-    status = await handle.status()
-    assert status.state.name == "CANCELLED"
+    if be.is_inmemory:
+        # Fake backend does not run the job until run_until_idle(), so the cancel
+        # always wins the race and the job settles CANCELLED.
+        assert outcome.cancelled is True
+        assert (await handle.status()).state.name == "CANCELLED"
+        return
+
+    # Live engine: an always-on worker may claim + finish this trivial task before
+    # the cancel RPC lands, and right after cancel the job can still be transiently
+    # QUEUED/RUNNING. Cancellation is COOPERATIVE — it never rolls back an
+    # already-terminal job — so poll to the TERMINAL state and assert the cooperative
+    # contract: either the cancel won (CANCELLED) or the job beat it (SUCCEEDED).
+    deadline = time.monotonic() + 10
+    while True:
+        status = await handle.status()
+        if status.state.is_terminal:
+            break
+        if time.monotonic() >= deadline:
+            pytest.fail(f"job never reached a terminal state (stuck in {status.state.name})")
+        await asyncio.sleep(0.1)
+    assert status.state.name in ("CANCELLED", "SUCCEEDED")
+    if status.state.name == "CANCELLED":
+        assert outcome.cancelled is True
 
 
 async def test_wait_signal_resume(backend_factory):
+    wait_key = f"review:{uuid.uuid4().hex}"
+
     def build(w: Worker) -> None:
         @w.task("hitl")
         async def hitl(ctx, payload):
-            decision = await ctx.wait_for_event("review:doc-9", timeout_s=600)
+            decision = await ctx.wait_for_event(wait_key, timeout_s=600)
             return {"verdict": decision["verdict"]}
 
     be = backend_factory(build)
@@ -145,7 +173,7 @@ async def test_wait_signal_resume(backend_factory):
     await be.run_until_idle()
     assert (await handle.status()).state.name == "WAITING"
 
-    await be.client.signal("review:doc-9", {"verdict": "approved"})
+    await be.client.signal(wait_key, {"verdict": "approved"})
     assert await handle.result() == {"verdict": "approved"}
 
 

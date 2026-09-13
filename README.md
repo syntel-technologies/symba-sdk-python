@@ -91,6 +91,8 @@ you'd otherwise re-implement per project:
   `SIGTERM→SIGKILL` on `cpu`/`gpu`.
 - **Retry classification without HTTP imports** — transient OS/timeout/connection errors and
   `httpx`/`aiohttp` status codes are matched by qualified class name, so the SDK stays dependency-light.
+  Any exception whose class is named `TimeoutError` (e.g. `sqlalchemy.exc.TimeoutError`, which does
+  *not* subclass the builtin) is treated as retryable, regardless of its module.
 - **Checkpoints that skip paid work on retry** — an optional Redis fast path in front of the
   engine's durable `PutCheckpoint`.
 - **A real test engine** — `SymbaTest` runs your handlers through the *actual* dispatch pipeline
@@ -112,7 +114,10 @@ you'd otherwise re-implement per project:
   `WAITING` (releasing its slot) and resumes it when someone calls `engine.signal(key, payload)`.
 - 🧵 **Execution profiles** — `io` (asyncio, the default), `cpu` (a `forkserver` process pool),
   and `gpu` (one warm subprocess with `@worker.on_gpu_init` hooks and a crash circuit breaker) —
-  each with its own timeout/lease defaults, all sharing one `Ctx` surface.
+  each with its own timeout/lease defaults, all sharing one `Ctx` surface. A task's `lease_ttl_s`
+  must be `>= timeout_s` (with heartbeat margin); io tasks inherit the engine default lease (~60s),
+  so set `lease_ttl_s` explicitly on any io task expected to run longer than a few heartbeats —
+  otherwise boot validation fails fast to stop a mid-run lease lapse from causing a duplicate dispatch.
 - 🔁 **Retries & a real error taxonomy** — `RetryableError`/`FatalError`/`RateLimitedError` you
   raise, plus a full SDK exception hierarchy (`JobFailed`, `JobCancelled`, `StaleLease`, …) with
   `error_history` on dead jobs.
@@ -211,6 +216,50 @@ async def fan_out_summaries(ctx: Ctx, payload: dict):
     return {"children": len(gate.children)}
 ```
 
+#### Threading data through chains and gates
+
+A few contracts are easy to trip over:
+
+- **A chained tail starts with an EMPTY payload (SDK-3).** The original `submit`
+  payload does **not** flow down a `chain=[...]`. Thread data by RETURNING it from
+  the predecessor and reading it back via `ctx.output[<predecessor_task>]` — not
+  via `ctx.payload`.
+
+  ```python
+  # head returns everything the tail needs; the tail reads it via ctx.output.
+  @worker.task("assemble")
+  async def assemble(ctx: Ctx, payload: dict):
+      return {"document_id": payload["document_id"], "output_ref": "s3://joined"}
+
+  @worker.task("complete_stage")
+  async def complete_stage(ctx: Ctx, payload: dict):        # payload == {} here
+      up = ctx.output["assemble"]                            # thread via the return value
+      await persist(up["document_id"], up["output_ref"])
+      return {"ok": True}
+
+  await sim.submit("assemble", {"document_id": "d1"}, chain=["assemble", "complete_stage"])
+  ```
+
+- **`task` + `chain` must agree (SDK-1).** When a continuation dict carries both a
+  `task` and a `chain`, `chain[0]` must equal `task` (lead the chain with the task
+  itself), otherwise the SDK raises at build time rather than silently running a
+  different DAG:
+
+  ```python
+  on_complete={"task": "assemble", "chain": ["assemble", "complete_stage"]}   # ok
+  on_complete={"task": "assemble", "chain": ["complete_stage"]}               # raises SymbaError
+  ```
+
+- **`ctx.output` access is inline-only unless you `fetch` (SDK-4).**
+  `ctx.output[key]`, `key in ctx.output` and `ctx.output.get(key)` resolve the
+  inline tier only and never issue a lazy `GetResult` RPC. `await
+  ctx.output.fetch(key)` is the only path that consults the lazy tier after an
+  inline miss.
+
+- **The gate continuation preserves your payload AND adds a manifest (SDK-2).**
+  The `on_complete` payload survives; the aggregate manifest is delivered under the
+  reserved `__gate__` key: `{"gate_id", "results", "expected", "succeeded"}`.
+
 ### Human-in-the-loop
 
 ```python
@@ -241,6 +290,39 @@ async def test_duplicate_content_stops_chain():
                              chain=["parse_content", "fan_out_summaries"])
         await h.result(timeout=5)
         assert "fan_out_summaries" not in {j.task_name for j in sim.jobs()}   # tail dropped
+```
+
+#### SymbaTest fidelity
+
+`SymbaTest` runs the SDK's real dispatch pipeline in-process, so most behavior is
+faithful. Know which guarantees it enforces vs. defers to the dockerized engine:
+
+| Behavior | Enforced by SymbaTest? |
+|---|---|
+| Chains (head/tail split, `ctx.output` threading) | ✅ Enforced |
+| Retries + compressed backoff | ✅ Enforced |
+| `on_failure` hooks | ✅ Enforced |
+| Checkpoints (`ctx.checkpoint` / `ctx.checkpoint_data`) | ✅ Enforced (dict-backed, no Redis) |
+| `dedup_key` collapse | ✅ Enforced |
+| Result shapes / schema validation | ✅ Enforced |
+| `gate_policy` (`all_success` / `all_terminal` / `quorum(n)`) | ✅ Enforced (FE-1) |
+| Forced DEAD via `fail_always()` / `fail_next(retryable=False)` | ✅ Enforced (FE-2) |
+| Gate continuation payload (caller payload + `__gate__` manifest) | ✅ Enforced (SDK-2) |
+| Lease / heartbeat timing, absolute-ceiling reclaim | ❌ Not enforced — integration suite |
+| Real 64KB `result_json` byte cap | ❌ Not enforced — integration suite |
+
+Driving a child to DEAD through a gate:
+
+```python
+async with SymbaTest() as sim:
+    sim.register(worker)
+    sim.fail_always("ocr_page")                 # exhaust max_attempts -> DEAD
+    _, gate = await sim.fan_out(
+        [{"task": "ocr_page", "payload": {"page": i}} for i in range(3)],
+        on_complete={"task": "assemble", "payload": {"document_id": "d1"}},
+        gate_policy="all_success",
+    )
+    # all_success + a DEAD child => the continuation is BLOCKED (not fired).
 ```
 
 More runnable programs live in [`examples/`](examples/).

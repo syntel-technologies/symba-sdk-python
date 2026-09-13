@@ -226,8 +226,12 @@ def doctor(
     ok = True
     eng = SyncEngine(target, token=token or settings.engine.token)
     try:
-        eng.get_job("__doctor_probe__")
-        table.add_row("grpc_reachable", "PASS", f"connected to {target}")
+        result = eng.probe(timeout_s=8.0)
+        if result.ok:
+            table.add_row("grpc_reachable", "PASS", f"connected to {target}: {result.detail}")
+        else:
+            ok = False
+            table.add_row("grpc_reachable", "FAIL", f"[{result.stage}] {result.detail}")
     except Exception as exc:
         ok = False
         table.add_row(

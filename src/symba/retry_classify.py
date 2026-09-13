@@ -8,6 +8,11 @@ rule by rule, and per-worker extensible via ``Worker(classify_overrides=[...])``
 HTTP clients (httpx / httpcore / aiohttp) are matched by **duck-typing**
 (attribute probe + module-name prefix) so the SDK stays free of HTTP-client
 dependencies while still classifying the three big clients correctly.
+
+Timeouts are likewise matched by name: any exception whose class is named
+``TimeoutError`` is treated as retryable regardless of its module, so library
+timeouts that do NOT subclass the builtin (e.g. ``sqlalchemy.exc.TimeoutError``)
+are recognised without importing those libraries.
 """
 
 from __future__ import annotations
@@ -90,6 +95,15 @@ CLASSIFICATION_RULES: list[ClassificationRule] = [
         retryable=True,
     ),
     ClassificationRule(
+        # Any library that names its exception ``TimeoutError`` but does NOT
+        # subclass the builtin (e.g. ``sqlalchemy.exc.TimeoutError``, some HTTP
+        # pools) is a transient timeout. Match by name, never by import, so the
+        # SDK stays dependency-light (SDK-6).
+        "named_timeout",
+        lambda e: type(e).__name__ == "TimeoutError",
+        retryable=True,
+    ),
+    ClassificationRule(
         "connection_error",
         lambda e: isinstance(e, ConnectionError),
         retryable=True,
@@ -102,6 +116,15 @@ CLASSIFICATION_RULES: list[ClassificationRule] = [
     ClassificationRule(
         "http_transport_error",
         _is_http_transport_error,
+        retryable=True,
+    ),
+    ClassificationRule(
+        # A urllib3/http.client body cut off mid-transfer (ProtocolError /
+        # IncompleteRead). Idempotent GETs are safe to re-issue, so this is a
+        # transient transport failure, not permanent. Match by class name so the
+        # SDK does not import urllib3 (mirrors _HTTP_MODULE_PREFIXES policy).
+        "incomplete_body_read",
+        lambda e: type(e).__name__ in {"ProtocolError", "IncompleteRead"},
         retryable=True,
     ),
     ClassificationRule(

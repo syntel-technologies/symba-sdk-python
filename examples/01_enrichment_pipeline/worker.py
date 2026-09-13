@@ -19,7 +19,10 @@ from pydantic import BaseModel
 
 from symba import Ctx, Worker
 
-worker = Worker(engine="grpc://localhost:7233", tags=["llm"], slots=100, strict_schemas=True)
+# strict_schemas would require EVERY task to declare both input_schema and
+# output_schema; this pipeline only types parse_content (to show the pattern), so
+# it stays off. Flip it on once all your tasks carry schemas.
+worker = Worker(engine="grpc://localhost:7233", tags=["llm"], slots=100)
 
 
 class ParseInput(BaseModel):
@@ -28,6 +31,7 @@ class ParseInput(BaseModel):
 
 
 class ParseOutput(BaseModel):
+    document_id: str  # threaded downstream: a chained tail starts with an EMPTY payload
     chunk_refs: list[str]
     content_hash: str
 
@@ -60,7 +64,11 @@ async def parse_content(ctx: Ctx, payload: ParseInput) -> ParseOutput:
     content_hash = hash_of(chunks)
     if await already_processed(payload.document_id, content_hash):
         return ctx.stop_chain({"reason": "duplicate_content"})  # drop the chain tail
-    return ParseOutput(chunk_refs=await stage(chunks), content_hash=content_hash)
+    return ParseOutput(
+        document_id=payload.document_id,
+        chunk_refs=await stage(chunks),
+        content_hash=content_hash,
+    )
 
 
 @worker.task("summarize_chunk")
@@ -74,11 +82,22 @@ async def summarize_chunk(ctx: Ctx, payload: dict):
 
 @worker.task("fan_out_summaries")
 async def fan_out_summaries(ctx: Ctx, payload: dict):
-    parsed = ctx.output["parse_content"]  # typed via the schema index when strict_schemas
-    chunk_refs = parsed.chunk_refs if isinstance(parsed, ParseOutput) else parsed["chunk_refs"]
+    # A chained tail starts with an EMPTY payload; the predecessor's result is NOT
+    # delivered inline. ctx.output[key] only works for upstreams named in depends_on;
+    # for a plain chain hop, pull the result from the lazy GetResult tier with
+    # `await ctx.output.fetch(...)` (returns a plain dict).
+    parsed = await ctx.output.fetch("parse_content")
+    # The lazy tier decodes through the producer's output_schema when one is set, so
+    # `parsed` is a ParseOutput here; fall back to dict access if it isn't typed.
+    if isinstance(parsed, ParseOutput):
+        chunk_refs, document_id = parsed.chunk_refs, parsed.document_id
+    else:
+        chunk_refs, document_id = parsed["chunk_refs"], parsed["document_id"]
     gate = await ctx.submit_children(
         children=[{"task": "summarize_chunk", "payload": {"chunk_ref": r}} for r in chunk_refs],
-        on_complete={"task": "executive_summary", "payload": payload},
+        # The caller payload here is PRESERVED into the continuation; the gate manifest
+        # arrives alongside it under "__gate__". Thread document_id explicitly.
+        on_complete={"task": "executive_summary", "payload": {"document_id": document_id}},
         gate_policy="all_success",
     )
     return {"children": len(gate.children)}
@@ -86,7 +105,12 @@ async def fan_out_summaries(ctx: Ctx, payload: dict):
 
 @worker.task("executive_summary")
 async def executive_summary(ctx: Ctx, payload: dict):
-    return {"document_id": payload["document_id"], "summarized": payload.get("succeeded", 0)}
+    # A gate continuation receives the caller's on_complete payload UNCHANGED, plus
+    # the aggregate under the reserved "__gate__" key: {gate_id, results, expected,
+    # succeeded} (succeeded EXCLUDES ctx.skip() children). Read the count from there,
+    # not the top level.
+    gate = payload.get("__gate__", {})
+    return {"document_id": payload["document_id"], "summarized": gate.get("succeeded", 0)}
 
 
 if __name__ == "__main__":

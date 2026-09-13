@@ -44,3 +44,17 @@ def test_json_seam_roundtrip():
     payload = {"a": 1, "b": ["x", "y"], "c": None}
     assert loads(dumps(payload)) == payload
     assert loads(b"") is None
+
+
+def test_runtime_meets_gencode_floors():
+    """PKG-1: the installed protobuf/grpcio must satisfy the gencode floors.
+
+    The committed stubs are generated against protobuf 7.35 / grpcio 1.82.1; a
+    transitive resolution below those raises at import in a consumer project.
+    """
+    from importlib.metadata import version
+
+    from packaging.version import Version
+
+    assert Version(version("protobuf")) >= Version("7.35"), "protobuf below the gencode floor"
+    assert Version(version("grpcio")) >= Version("1.82.1"), "grpcio below the gencode floor"

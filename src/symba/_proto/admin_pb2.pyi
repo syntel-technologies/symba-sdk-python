@@ -50,8 +50,10 @@ class CronSchedule(_message.Message):
     def __init__(self, schedule_id: _Optional[str] = ..., cron_expr: _Optional[str] = ..., task_name: _Optional[str] = ..., payload_json: _Optional[bytes] = ..., tenant: _Optional[str] = ..., enabled: _Optional[bool] = ..., last_fire: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., next_fire: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class ListCronRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("tenant",)
+    TENANT_FIELD_NUMBER: _ClassVar[int]
+    tenant: str
+    def __init__(self, tenant: _Optional[str] = ...) -> None: ...
 
 class ListCronResponse(_message.Message):
     __slots__ = ("schedules",)
@@ -60,15 +62,31 @@ class ListCronResponse(_message.Message):
     def __init__(self, schedules: _Optional[_Iterable[_Union[CronSchedule, _Mapping]]] = ...) -> None: ...
 
 class SetCronEnabledRequest(_message.Message):
-    __slots__ = ("schedule_id", "enabled")
+    __slots__ = ("schedule_id", "enabled", "tenant")
     SCHEDULE_ID_FIELD_NUMBER: _ClassVar[int]
     ENABLED_FIELD_NUMBER: _ClassVar[int]
+    TENANT_FIELD_NUMBER: _ClassVar[int]
     schedule_id: str
     enabled: bool
-    def __init__(self, schedule_id: _Optional[str] = ..., enabled: _Optional[bool] = ...) -> None: ...
+    tenant: str
+    def __init__(self, schedule_id: _Optional[str] = ..., enabled: _Optional[bool] = ..., tenant: _Optional[str] = ...) -> None: ...
+
+class DeleteCronRequest(_message.Message):
+    __slots__ = ("schedule_id", "tenant")
+    SCHEDULE_ID_FIELD_NUMBER: _ClassVar[int]
+    TENANT_FIELD_NUMBER: _ClassVar[int]
+    schedule_id: str
+    tenant: str
+    def __init__(self, schedule_id: _Optional[str] = ..., tenant: _Optional[str] = ...) -> None: ...
+
+class DeleteCronResponse(_message.Message):
+    __slots__ = ("deleted",)
+    DELETED_FIELD_NUMBER: _ClassVar[int]
+    deleted: bool
+    def __init__(self, deleted: _Optional[bool] = ...) -> None: ...
 
 class Worker(_message.Message):
-    __slots__ = ("worker_id", "tags", "labels", "slots", "slots_busy", "last_seen", "stale")
+    __slots__ = ("worker_id", "tags", "labels", "slots", "slots_busy", "last_seen", "stale", "registered_tasks")
     class LabelsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -83,6 +101,7 @@ class Worker(_message.Message):
     SLOTS_BUSY_FIELD_NUMBER: _ClassVar[int]
     LAST_SEEN_FIELD_NUMBER: _ClassVar[int]
     STALE_FIELD_NUMBER: _ClassVar[int]
+    REGISTERED_TASKS_FIELD_NUMBER: _ClassVar[int]
     worker_id: str
     tags: _containers.RepeatedScalarFieldContainer[str]
     labels: _containers.ScalarMap[str, str]
@@ -90,7 +109,8 @@ class Worker(_message.Message):
     slots_busy: int
     last_seen: _timestamp_pb2.Timestamp
     stale: bool
-    def __init__(self, worker_id: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., labels: _Optional[_Mapping[str, str]] = ..., slots: _Optional[int] = ..., slots_busy: _Optional[int] = ..., last_seen: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., stale: _Optional[bool] = ...) -> None: ...
+    registered_tasks: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, worker_id: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., labels: _Optional[_Mapping[str, str]] = ..., slots: _Optional[int] = ..., slots_busy: _Optional[int] = ..., last_seen: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., stale: _Optional[bool] = ..., registered_tasks: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ListWorkersRequest(_message.Message):
     __slots__ = ()

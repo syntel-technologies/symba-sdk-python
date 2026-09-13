@@ -1,7 +1,7 @@
 import datetime
 
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
-from simba.v1 import common_pb2 as _common_pb2
+from symba.v1 import common_pb2 as _common_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -29,7 +29,7 @@ class GetResultResponse(_message.Message):
     def __init__(self, result_json: _Optional[bytes] = ..., found: _Optional[bool] = ...) -> None: ...
 
 class ClaimRequest(_message.Message):
-    __slots__ = ("worker_id", "tags", "free_slots", "sdk_version", "labels")
+    __slots__ = ("worker_id", "tags", "free_slots", "sdk_version", "labels", "registered_tasks")
     class LabelsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -42,12 +42,14 @@ class ClaimRequest(_message.Message):
     FREE_SLOTS_FIELD_NUMBER: _ClassVar[int]
     SDK_VERSION_FIELD_NUMBER: _ClassVar[int]
     LABELS_FIELD_NUMBER: _ClassVar[int]
+    REGISTERED_TASKS_FIELD_NUMBER: _ClassVar[int]
     worker_id: str
     tags: _containers.RepeatedScalarFieldContainer[str]
     free_slots: int
     sdk_version: str
     labels: _containers.ScalarMap[str, str]
-    def __init__(self, worker_id: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., free_slots: _Optional[int] = ..., sdk_version: _Optional[str] = ..., labels: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    registered_tasks: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, worker_id: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., free_slots: _Optional[int] = ..., sdk_version: _Optional[str] = ..., labels: _Optional[_Mapping[str, str]] = ..., registered_tasks: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class JobAssignment(_message.Message):
     __slots__ = ("job", "lease_token", "lease_expires_at", "checkpoint_json", "event_payload_json")
@@ -100,20 +102,30 @@ class CompleteResponse(_message.Message):
     def __init__(self, accepted: _Optional[bool] = ...) -> None: ...
 
 class FailRequest(_message.Message):
-    __slots__ = ("job_id", "lease_token", "error_type", "error_message", "stack_hash", "retryable")
+    __slots__ = ("job_id", "lease_token", "error_type", "error_message", "stack_hash", "retryable", "max_attempts", "error_metadata_json", "error_message_safe", "rate_limited", "retry_after_s")
     JOB_ID_FIELD_NUMBER: _ClassVar[int]
     LEASE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     ERROR_TYPE_FIELD_NUMBER: _ClassVar[int]
     ERROR_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     STACK_HASH_FIELD_NUMBER: _ClassVar[int]
     RETRYABLE_FIELD_NUMBER: _ClassVar[int]
+    MAX_ATTEMPTS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_METADATA_JSON_FIELD_NUMBER: _ClassVar[int]
+    ERROR_MESSAGE_SAFE_FIELD_NUMBER: _ClassVar[int]
+    RATE_LIMITED_FIELD_NUMBER: _ClassVar[int]
+    RETRY_AFTER_S_FIELD_NUMBER: _ClassVar[int]
     job_id: str
     lease_token: str
     error_type: str
     error_message: str
     stack_hash: str
     retryable: bool
-    def __init__(self, job_id: _Optional[str] = ..., lease_token: _Optional[str] = ..., error_type: _Optional[str] = ..., error_message: _Optional[str] = ..., stack_hash: _Optional[str] = ..., retryable: _Optional[bool] = ...) -> None: ...
+    max_attempts: int
+    error_metadata_json: bytes
+    error_message_safe: bool
+    rate_limited: bool
+    retry_after_s: float
+    def __init__(self, job_id: _Optional[str] = ..., lease_token: _Optional[str] = ..., error_type: _Optional[str] = ..., error_message: _Optional[str] = ..., stack_hash: _Optional[str] = ..., retryable: _Optional[bool] = ..., max_attempts: _Optional[int] = ..., error_metadata_json: _Optional[bytes] = ..., error_message_safe: _Optional[bool] = ..., rate_limited: _Optional[bool] = ..., retry_after_s: _Optional[float] = ...) -> None: ...
 
 class FailResponse(_message.Message):
     __slots__ = ("accepted", "will_retry")

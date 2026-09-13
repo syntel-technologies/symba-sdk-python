@@ -66,7 +66,10 @@ async def test_result_dead_raises_jobfailed(engine_with_fake):
     engine, fake = engine_with_fake
     history = [{"error_type": "ValueError", "attempt": 1}]
     fake.await_job = make_job(
-        "job-1", JobState.DEAD, result=_json.dumps(history), last_error="boom"
+        "job-1",
+        JobState.DEAD,
+        error_history_json=_json.dumps(history),
+        last_error="boom",
     )
     handle = engine.job("job-1")
     with pytest.raises(JobFailed) as exc:

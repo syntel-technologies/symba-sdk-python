@@ -20,6 +20,7 @@ from tenacity import retry, stop_after_delay, wait_exponential
 
 from . import _json
 from ._control import _Parked
+from ._error_serialization import serialize_exception
 from ._proto import control_plane_pb2_grpc, data_plane_pb2, data_plane_pb2_grpc
 from .checkpoint import CheckpointStore
 from .context import Ctx, Skip, StopChain, UpstreamOutputs
@@ -85,6 +86,7 @@ class Dispatcher:
                 message=f"task {job.spec.task_name!r} not registered on this worker",
                 retryable=False,
                 stack_hash="",
+                message_safe=True,
             )
             return
 
@@ -95,7 +97,9 @@ class Dispatcher:
             payload = validate_payload(ctx.payload, task.input_schema)
             ctx.payload = payload
         except SymbaError as exc:
-            await self._fail_from_exc(job.id, assignment.lease_token, exc, retryable=False)
+            await self._fail_from_exc(
+                job.id, assignment.lease_token, exc, retryable=False, max_attempts=task.max_attempts
+            )
             await self._deps.middleware.on_fail(ctx, exc, False)
             return
 
@@ -128,7 +132,9 @@ class Dispatcher:
             return
         except BaseException as exc:
             await shell.stop()
-            await self._finalize_failure(job.id, assignment.lease_token, ctx, exc)
+            await self._finalize_failure(
+                job.id, assignment.lease_token, ctx, exc, max_attempts=task.max_attempts
+            )
             return
 
         await shell.stop()
@@ -275,7 +281,9 @@ class Dispatcher:
                 result = serialize_result(outcome, task.output_schema)
                 await self._complete(job_id, lease_token, _json.dumps(result))
         except SymbaError as exc:
-            await self._finalize_failure(job_id, lease_token, ctx, exc)
+            await self._finalize_failure(
+                job_id, lease_token, ctx, exc, max_attempts=task.max_attempts
+            )
             return
         await self._cleanup_checkpoints(ctx)
         await self._deps.middleware.on_complete(ctx, outcome, duration_ms)
@@ -290,19 +298,40 @@ class Dispatcher:
         await store.delete_fast()
 
     async def _finalize_failure(
-        self, job_id: str, lease_token: str, ctx: Ctx, exc: BaseException
+        self,
+        job_id: str,
+        lease_token: str,
+        ctx: Ctx,
+        exc: BaseException,
+        *,
+        max_attempts: int | None = None,
     ) -> None:
         if isinstance(exc, SymbaError):
             retryable = exc.retryable
         else:
             retryable = classify(exc, overrides=self._deps.classify_overrides)
+        failure = serialize_exception(exc)
+        stack_hash = _stack_hash(exc)
         ctx.logger.error(
             "[dispatch] handler_raised",
-            error_type=type(exc).__name__,
+            error_type=failure.error_type,
             retryable=retryable,
-            exc_info=exc,
+            stack_hash=stack_hash,
+            error_metadata=failure.metadata,
         )
-        await self._fail_from_exc(job_id, lease_token, exc, retryable=retryable)
+        await self._fail(
+            job_id,
+            lease_token,
+            error_type=failure.error_type,
+            message=failure.message,
+            retryable=retryable,
+            stack_hash=stack_hash,
+            max_attempts=max_attempts,
+            metadata=failure.metadata,
+            message_safe=True,
+            rate_limited=failure.rate_limited,
+            retry_after_s=failure.retry_after_s,
+        )
         await self._deps.middleware.on_fail(ctx, exc, retryable)
 
     async def _finalize_cancel(
@@ -316,6 +345,7 @@ class Dispatcher:
                 message="job exceeded timeout_s",
                 retryable=True,
                 stack_hash="",
+                message_safe=True,
             )
             err: BaseException = TimeoutError("job timeout")
         else:
@@ -326,6 +356,7 @@ class Dispatcher:
                 message="cancelled by engine",
                 retryable=False,
                 stack_hash="",
+                message_safe=True,
             )
             err = asyncio.CancelledError()
         await self._deps.middleware.on_fail(ctx, err, shell.cancel_reason == CancelReason.TIMEOUT)
@@ -350,17 +381,27 @@ class Dispatcher:
         await self._deliver(self._deps.stub.Complete, req, job_id, "Complete")
 
     async def _fail_from_exc(
-        self, job_id: str, lease_token: str, exc: BaseException, *, retryable: bool
+        self,
+        job_id: str,
+        lease_token: str,
+        exc: BaseException,
+        *,
+        retryable: bool,
+        max_attempts: int | None = None,
     ) -> None:
-        # A subprocess error echoes the original (in-child) type name for fidelity.
-        error_type = getattr(exc, "original_type", None) or type(exc).__name__
+        failure = serialize_exception(exc)
         await self._fail(
             job_id,
             lease_token,
-            error_type=error_type,
-            message=str(exc),
+            error_type=failure.error_type,
+            message=failure.message,
             retryable=retryable,
             stack_hash=_stack_hash(exc),
+            max_attempts=max_attempts,
+            metadata=failure.metadata,
+            message_safe=True,
+            rate_limited=failure.rate_limited,
+            retry_after_s=failure.retry_after_s,
         )
 
     async def _fail(
@@ -372,6 +413,11 @@ class Dispatcher:
         message: str,
         retryable: bool,
         stack_hash: str,
+        max_attempts: int | None = None,
+        metadata: dict[str, object] | None = None,
+        message_safe: bool = False,
+        rate_limited: bool = False,
+        retry_after_s: float | None = None,
     ) -> None:
         req = data_plane_pb2.FailRequest(
             job_id=job_id,
@@ -380,6 +426,13 @@ class Dispatcher:
             error_message=message[:_ERROR_MESSAGE_CAP],
             stack_hash=stack_hash,
             retryable=retryable,
+            # Report the worker-declared retry cap so the engine dies at the right
+            # attempt; 0/unset leaves the engine on its stored default.
+            max_attempts=max_attempts or 0,
+            error_metadata_json=_json.dumps(metadata or {}),
+            error_message_safe=message_safe,
+            rate_limited=rate_limited,
+            retry_after_s=retry_after_s or 0.0,
         )
         await self._deliver(self._deps.stub.Fail, req, job_id, "Fail")
 

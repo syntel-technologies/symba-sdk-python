@@ -14,6 +14,12 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass
 
+#: Engine default lease TTL (seconds) applied to io tasks that declare no
+#: ``lease_ttl_s`` (the io profile defers its lease to the engine). Used by boot
+#: validation to catch a long ``timeout_s`` running under the short engine lease
+#: (SDK-7). Kept in lockstep with the engine ``[defaults]`` via COMPATIBILITY.md.
+ENGINE_DEFAULT_IO_LEASE_TTL_S = 60
+
 
 class Profile(enum.StrEnum):
     IO = "io"
@@ -54,4 +60,10 @@ def coerce_profile(value: str | Profile) -> Profile:
         ) from exc
 
 
-__all__ = ["Profile", "ProfileDefaults", "PROFILE_DEFAULTS", "coerce_profile"]
+__all__ = [
+    "Profile",
+    "ProfileDefaults",
+    "PROFILE_DEFAULTS",
+    "ENGINE_DEFAULT_IO_LEASE_TTL_S",
+    "coerce_profile",
+]

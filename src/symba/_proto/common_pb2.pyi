@@ -102,7 +102,7 @@ class UpstreamResult(_message.Message):
     def __init__(self, key: _Optional[str] = ..., job_id: _Optional[str] = ..., result_json: _Optional[bytes] = ...) -> None: ...
 
 class Job(_message.Message):
-    __slots__ = ("id", "tenant", "spec", "state", "attempt", "result_json", "claimed_by", "last_error", "created_at", "started_at", "finished_at", "upstream")
+    __slots__ = ("id", "tenant", "spec", "state", "attempt", "result_json", "claimed_by", "last_error", "created_at", "started_at", "finished_at", "upstream", "error_history_json")
     ID_FIELD_NUMBER: _ClassVar[int]
     TENANT_FIELD_NUMBER: _ClassVar[int]
     SPEC_FIELD_NUMBER: _ClassVar[int]
@@ -115,6 +115,7 @@ class Job(_message.Message):
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     FINISHED_AT_FIELD_NUMBER: _ClassVar[int]
     UPSTREAM_FIELD_NUMBER: _ClassVar[int]
+    ERROR_HISTORY_JSON_FIELD_NUMBER: _ClassVar[int]
     id: str
     tenant: str
     spec: JobSpec
@@ -127,7 +128,8 @@ class Job(_message.Message):
     started_at: _timestamp_pb2.Timestamp
     finished_at: _timestamp_pb2.Timestamp
     upstream: _containers.RepeatedCompositeFieldContainer[UpstreamResult]
-    def __init__(self, id: _Optional[str] = ..., tenant: _Optional[str] = ..., spec: _Optional[_Union[JobSpec, _Mapping]] = ..., state: _Optional[_Union[JobState, str]] = ..., attempt: _Optional[int] = ..., result_json: _Optional[bytes] = ..., claimed_by: _Optional[str] = ..., last_error: _Optional[str] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., finished_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., upstream: _Optional[_Iterable[_Union[UpstreamResult, _Mapping]]] = ...) -> None: ...
+    error_history_json: bytes
+    def __init__(self, id: _Optional[str] = ..., tenant: _Optional[str] = ..., spec: _Optional[_Union[JobSpec, _Mapping]] = ..., state: _Optional[_Union[JobState, str]] = ..., attempt: _Optional[int] = ..., result_json: _Optional[bytes] = ..., claimed_by: _Optional[str] = ..., last_error: _Optional[str] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., started_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., finished_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., upstream: _Optional[_Iterable[_Union[UpstreamResult, _Mapping]]] = ..., error_history_json: _Optional[bytes] = ...) -> None: ...
 
 class JobEvent(_message.Message):
     __slots__ = ("job_id", "event", "at", "detail_json")
