@@ -45,8 +45,8 @@ Engine = "https://github.com/syntel-technologies/symba"
 [dependency-groups]
 dev = [
     "grpcio-tools>=1.82.1,<2.0",
-    "ruff==0.15.21",
-    "pyright==1.1.411",
+    "ruff==0.16.6",
+    "pyright==1.1.414",
     "pytest>=9.0,<10.0",
     "pytest-asyncio>=1.4,<2.0",
     "pytest-timeout>=2.3,<3.0",
