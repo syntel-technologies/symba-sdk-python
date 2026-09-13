@@ -23,7 +23,9 @@ After CI succeeds for a push to the current `main`, Release Please opens or upda
 
 A GitHub Release can exist while its artifact workflow is still running or has failed. A release is consumable only when **Release is green and its documented artifacts are attached**. Never claim that a tag alone proves a successful publication. Fix a publishing failure through a reviewed change and a new version when code changes; do not move a published tag. Existing release assets are never silently replaced with different bytes.
 
-## One-time release bot activation (organization owner)
+## Release bot activation (organization owner)
+
+Verified on 13 September 2026: `Syntel Release Bot` is installed, its exact Contents/PRs/Issues permissions were accepted, and **Release bot check** passed in both repositories. `RELEASE_APP_CLIENT_ID` is set per repository; the private key is available through the organization secret. New `v*` tags are restricted to this App by a separate creation rule. The main and immutable-tag rules grant it no bypass. The steps below are retained for key rotation or rebuilding the setup.
 
 Create one private GitHub App owned by `syntel-technologies`, named `Syntel Release Bot` (choose a unique slug if GitHub requires one):
 

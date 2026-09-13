@@ -13,14 +13,13 @@ symba.__engine_protocol__    # e.g. "v0.1.0"         — the proto contract the 
 ## SDK ↔ engine version matrix
 
 The wire contract is **additive within a major**: the SDK sends zero values for knobs it does not
-set, so the engine applies its own defaults, and new proto fields are ignored by older peers. That
-means an SDK works with any engine whose proto **major** matches, and vice-versa.
+set, so the engine applies its own defaults, and new proto fields are ignored by older peers. A matching major permits the handshake; it does not prove that an older engine implements every newer RPC. Use the immutable engine revision in `src/symba/_proto/ENGINE_REF` for the pairing actually exercised by live CI.
 
 | SDK (`symba`) | Engine proto (`__engine_protocol__`) | Engine server | Status |
 |---|---|---|---|
 | `0.1.x` | `v0.2.0` | `0.1.x`+ | ✅ Supported — current pre-1.0 line (adds AdminService cron upsert/delete). |
 | `0.1.x` | `v0.1.0` | `0.1.x` | ✅ Backward-compatible — the new admin cron RPCs are simply unavailable. |
-| `0.1.x` | `v0.2.0` | future, same proto major | ✅ Forward-compatible — unknown fields ignored. |
+| `0.1.x` | `v0.2.0` | future, same proto major | Handshake-compatible by policy; run conformance before claiming support. |
 | `0.1.x` | `v0.2.0` | `>= 1.0` if proto major bumps | ⚠️ Requires an SDK matching the new proto major. |
 
 Until `1.0`, both projects are pre-release: patch/minor versions may move together. Pin an exact
