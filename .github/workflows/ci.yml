@@ -131,7 +131,7 @@ jobs:
           python3 - <<'PYCODE'
           from xml.etree import ElementTree as ET
           cases = [case for case in ET.parse("conformance.xml").iter("testcase") if "[engine]" in case.attrib.get("name", "")]
-          assert cases, "No live-engine conformance cases were collected"
+          assert len(cases) >= 8, "Expected at least eight live-engine conformance cases"
           assert all(not list(case) or all(child.tag not in {"skipped", "failure", "error"} for child in case) for case in cases), "A live-engine case failed or was skipped"
           PYCODE
       - name: Engine diagnostics
@@ -153,7 +153,7 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
       - run: uv build
-      - run: uvx --from twine twine check dist/*
+      - run: uvx --from twine==6.2.0 twine check dist/*
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sdk-distributions

@@ -36,6 +36,8 @@ async def test_dedup_collapses_duplicate_submits(backend_factory):
 
 
 async def test_chain_abort_drops_remaining_stages(backend_factory):
+    executed = []
+
     def build(w: Worker) -> None:
         @w.task("validate")
         async def validate(ctx, payload):
@@ -43,6 +45,7 @@ async def test_chain_abort_drops_remaining_stages(backend_factory):
 
         @w.task("process")
         async def process(ctx, payload):
+            executed.append("process")
             return {"processed": True}
 
     be = backend_factory(build)
@@ -51,7 +54,7 @@ async def test_chain_abort_drops_remaining_stages(backend_factory):
     await be.run_until_idle()
 
     assert result == {"reason": "invalid input"}
-    assert "process" not in {j.task_name for j in be.client.jobs()}
+    assert executed == []
 
 
 async def test_gate_math_counts_success_and_skips(backend_factory):
@@ -189,8 +192,6 @@ async def test_checkpoint_restore_after_simulated_crash(backend_factory):
             return {"resumed_from": ctx.checkpoint_data["progress"]}
 
     be = backend_factory(build)
-    if not be.is_inmemory:  # engine restores checkpoint on its own retry path
-        pytest.skip("checkpoint-restore replay is engine-managed off SymbaTest")
     handle = await be.client.submit("resumable", {})
     result = await handle.result()
 

@@ -128,12 +128,6 @@ class _EngineClientAdapter:
         # the just-submitted work is claimed and advanced before the test asserts.
         await asyncio.sleep(0.5)
 
-    def jobs(self) -> list[Any]:
-        # Only test_chain_abort uses this; the corpus reads task_name off the
-        # result. Engine has no sync snapshot, so return [] — the chain-abort test
-        # already asserts the aborted result and is covered live by e2e scripts.
-        return []
-
 
 def _make_engine(build: Callable[[Worker], None]) -> Backend:
     from symba import Engine
