@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from symba._proto import common_pb2, control_plane_pb2, data_plane_pb2
 from symba.types import JobState
 
@@ -20,7 +18,7 @@ def make_job(
 ) -> common_pb2.Job:
     job = common_pb2.Job(
         id=job_id,
-        state=cast("common_pb2.JobState", state.value),
+        state=state.value,
         attempt=attempt,
         result_json=result,
         last_error=last_error,
@@ -110,7 +108,7 @@ def make_assignment(
     job = common_pb2.Job(
         id=job_id,
         tenant=tenant,
-        state=cast("common_pb2.JobState", JobState.RUNNING.value),
+        state=JobState.RUNNING.value,
         attempt=attempt,
     )
     job.spec.task_name = task_name

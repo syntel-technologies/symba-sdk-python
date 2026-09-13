@@ -1,5 +1,3 @@
-SYMBA_REPO ?= https://github.com/syntel-technologies/symba.git
-SYMBA_TAG  ?= $(shell cat src/symba/_proto/ENGINE_REF 2>/dev/null)
 # For local development against a checked-out engine repo, override PROTO_SRC:
 #   make proto-gen PROTO_SRC=/path/to/symba/proto
 PROTO_SRC  ?=

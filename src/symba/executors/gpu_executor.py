@@ -22,7 +22,7 @@ from symba.logging import get_logger
 
 from ._pump import build_snapshot, replay_log, service_ctx_call
 from .ctx_proxy import CtxCall, CtxProxy, JobDone, LogRecord, RunJob, Shutdown
-from .process_executor import _rehydrate_child_error
+from .process_executor import _rehydrate_child_error, _serialize_child_failure
 
 if TYPE_CHECKING:
     from multiprocessing.connection import Connection
@@ -65,23 +65,9 @@ def _gpu_child_main(
             result = handler(proxy, frame.payload)
             conn.send(JobDone(ok=True, result=result))
         except SymbaError as exc:
-            conn.send(
-                JobDone(
-                    ok=False,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc),
-                    retryable=exc.retryable,
-                )
-            )
+            conn.send(_serialize_child_failure(exc, retryable=exc.retryable))
         except Exception as exc:  # classified in-child + marshalled
-            conn.send(
-                JobDone(
-                    ok=False,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc),
-                    retryable=classify(exc),
-                )
-            )
+            conn.send(_serialize_child_failure(exc, retryable=classify(exc)))
 
 
 class GpuExecutor:

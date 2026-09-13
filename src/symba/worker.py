@@ -589,10 +589,15 @@ class Worker:
         no traffic, became stale, and stopped receiving the next job despite its
         claim stream and event loop still being healthy.
         """
+        # Task registration is immutable after boot. Advertise the exact local
+        # handler inventory separately from routing tags so operator consoles can
+        # display capabilities without changing scheduling semantics.
+        registered_tasks = sorted(self.registry.names())
         while not self._stopped.is_set():
             yield data_plane_pb2.ClaimRequest(
                 worker_id=self.worker_id,
                 tags=tags,
+                registered_tasks=registered_tasks,
                 free_slots=self._announce_free_slots(),
                 sdk_version=SDK_VERSION_STRING,
                 labels={**self.labels, "symba.slots_total": str(self._slots)},
@@ -717,6 +722,7 @@ class Worker:
                     lease_token=assignment.lease_token,
                     error_type="NoFreeSlot",
                     error_message="worker had no free slot for this assignment",
+                    error_message_safe=True,
                     retryable=True,
                 )
             )

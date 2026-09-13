@@ -62,6 +62,34 @@ async def test_chain_threads_upstream_result():
     assert tail_result == {"value": 50}
 
 
+async def test_chain_rate_class_applies_only_to_explicitly_submitted_head():
+    w = _worker()
+
+    @w.task("provider")
+    async def provider(ctx, payload):
+        return {"value": payload["value"]}
+
+    @w.task("db_apply")
+    async def db_apply(ctx, payload):
+        return await ctx.output.fetch("provider")
+
+    sim = SymbaTest()
+    sim.register(w)
+
+    handle = await sim.submit(
+        "provider",
+        {"value": 7},
+        chain=["provider", "db_apply"],
+        rate_class="llm",
+    )
+    await handle.result()
+    await sim.run_until_idle()
+
+    records = {record.spec.task_name: record for record in sim._store.jobs.values()}
+    assert records["provider"].spec.rate_class == "llm"
+    assert records["db_apply"].spec.rate_class == ""
+
+
 async def test_stop_chain_drops_tail():
     w = _worker()
 

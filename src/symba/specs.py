@@ -143,6 +143,10 @@ def build_job_spec(
     the original submit ``payload`` does NOT flow down the chain. Thread data to a
     tail by RETURNING it from the predecessor and reading it back via
     ``ctx.output[<predecessor_task>]``; do not expect ``ctx.payload`` to carry it.
+
+    ``rate_class`` applies only to the explicitly submitted head. Implicit chain
+    tails do not inherit it; submit a provider-calling continuation explicitly
+    with its own rate class.
     """
     if not task or not isinstance(task, str):
         raise SymbaError("submit requires a non-empty task name")

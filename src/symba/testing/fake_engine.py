@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from symba import _json
 from symba._proto import common_pb2, data_plane_pb2
@@ -255,7 +255,7 @@ class SymbaTest:
             id=record.id,
             tenant=record.tenant,
             spec=record.spec,
-            state=cast("common_pb2.JobState", JobState.RUNNING.value),
+            state=JobState.RUNNING.value,
             attempt=record.attempt,
             upstream=record.upstream,
         )
@@ -342,6 +342,11 @@ class SymbaTest:
         del next_spec.chain[:]
         del next_spec.depends_on[:]
         next_spec.payload_json = b""
+        # Match the real engine: rate classes govern starts of the explicitly
+        # submitted job only. Implicit DB/apply tails do not spend provider
+        # quota; a provider-calling continuation must be submitted explicitly
+        # with its own rate_class.
+        next_spec.rate_class = ""
         next_id = self._store.new_job_id()
         next_spec.ctx_id = record.spec.ctx_id or record.id
         upstream = [
@@ -573,7 +578,7 @@ class SymbaTest:
             id=record.id,
             tenant=record.tenant,
             spec=record.spec,
-            state=cast("common_pb2.JobState", record.state.value),
+            state=record.state.value,
             attempt=record.attempt,
             result_json=record.result,
             last_error=record.last_error,

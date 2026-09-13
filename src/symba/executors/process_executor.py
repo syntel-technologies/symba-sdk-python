@@ -23,6 +23,7 @@ import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
+from symba._error_serialization import SerializedFailure, serialize_exception
 from symba.errors import RetryableError, SymbaError
 from symba.logging import get_logger
 
@@ -62,23 +63,9 @@ def _cpu_worker_main(conn: Connection, handlers: dict[str, Any]) -> None:
             result = handler(proxy, frame.payload)
             conn.send(JobDone(ok=True, result=result))
         except SymbaError as exc:
-            conn.send(
-                JobDone(
-                    ok=False,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc),
-                    retryable=exc.retryable,
-                )
-            )
+            conn.send(_serialize_child_failure(exc, retryable=exc.retryable))
         except Exception as exc:  # classified in-child + marshalled, never swallowed
-            conn.send(
-                JobDone(
-                    ok=False,
-                    error_type=type(exc).__name__,
-                    error_message=str(exc),
-                    retryable=classify(exc),
-                )
-            )
+            conn.send(_serialize_child_failure(exc, retryable=classify(exc)))
 
 
 class _Slot:
@@ -289,7 +276,28 @@ def _rehydrate_child_error(done: JobDone) -> BaseException:
     err = SubprocessError(done.error_message or "subprocess handler failed")
     err.original_type = done.error_type or "SubprocessError"
     err.retryable = bool(done.retryable)
+    err._symba_serialized_failure = SerializedFailure(
+        error_type=err.original_type,
+        message=done.error_message or "Task handler failed",
+        metadata=dict(done.error_metadata or {}),
+        rate_limited=done.rate_limited,
+        retry_after_s=done.retry_after_s,
+    )
     return err
+
+
+def _serialize_child_failure(exc: BaseException, *, retryable: bool) -> JobDone:
+    failure = serialize_exception(exc)
+    return JobDone(
+        ok=False,
+        error_type=failure.error_type,
+        error_message=failure.message,
+        error_metadata=failure.metadata,
+        error_message_safe=True,
+        rate_limited=failure.rate_limited,
+        retry_after_s=failure.retry_after_s,
+        retryable=retryable,
+    )
 
 
 class SubprocessError(SymbaError):
@@ -300,6 +308,7 @@ class SubprocessError(SymbaError):
     """
 
     original_type: str = "SubprocessError"
+    _symba_serialized_failure: SerializedFailure | None = None
 
     def __init__(self, message: str | None = None, **context: Any) -> None:
         super().__init__(message, **context)

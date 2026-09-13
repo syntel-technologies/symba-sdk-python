@@ -29,7 +29,7 @@ class GetResultResponse(_message.Message):
     def __init__(self, result_json: _Optional[bytes] = ..., found: _Optional[bool] = ...) -> None: ...
 
 class ClaimRequest(_message.Message):
-    __slots__ = ("worker_id", "tags", "free_slots", "sdk_version", "labels")
+    __slots__ = ("worker_id", "tags", "free_slots", "sdk_version", "labels", "registered_tasks")
     class LabelsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -42,12 +42,14 @@ class ClaimRequest(_message.Message):
     FREE_SLOTS_FIELD_NUMBER: _ClassVar[int]
     SDK_VERSION_FIELD_NUMBER: _ClassVar[int]
     LABELS_FIELD_NUMBER: _ClassVar[int]
+    REGISTERED_TASKS_FIELD_NUMBER: _ClassVar[int]
     worker_id: str
     tags: _containers.RepeatedScalarFieldContainer[str]
     free_slots: int
     sdk_version: str
     labels: _containers.ScalarMap[str, str]
-    def __init__(self, worker_id: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., free_slots: _Optional[int] = ..., sdk_version: _Optional[str] = ..., labels: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    registered_tasks: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, worker_id: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., free_slots: _Optional[int] = ..., sdk_version: _Optional[str] = ..., labels: _Optional[_Mapping[str, str]] = ..., registered_tasks: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class JobAssignment(_message.Message):
     __slots__ = ("job", "lease_token", "lease_expires_at", "checkpoint_json", "event_payload_json")

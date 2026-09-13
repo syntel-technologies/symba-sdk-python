@@ -326,6 +326,15 @@ async def test_admission_loop_not_started_when_hook_absent():
 async def test_idle_claim_stream_periodically_refreshes_registration():
     """An idle worker must not become stale while its claim stream is healthy."""
     w = _worker(heartbeat_interval_s=0.01)
+
+    @w.task("z.last", profile=Profile.IO)
+    async def z_last(ctx: Ctx, payload: dict) -> dict:
+        return payload
+
+    @w.task("a.first", profile=Profile.IO)
+    async def a_first(ctx: Ctx, payload: dict) -> dict:
+        return payload
+
     w._slots = 7
     w._free_slots = 7
     requests = w._claim_requests(["io"])
@@ -338,6 +347,8 @@ async def test_idle_claim_stream_periodically_refreshes_registration():
     assert second.worker_id == w.worker_id
     assert second.free_slots == 7
     assert list(second.tags) == ["io"]
+    assert list(first.registered_tasks) == ["a.first", "z.last"]
+    assert list(second.registered_tasks) == ["a.first", "z.last"]
 
     w._stopped.set()
     await requests.aclose()

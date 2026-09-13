@@ -87,6 +87,10 @@ class JobDone:
     #: (error_type, message) — the child cannot pickle live tracebacks safely.
     error_type: str | None = None
     error_message: str | None = None
+    error_metadata: dict[str, object] | None = None
+    error_message_safe: bool = False
+    rate_limited: bool = False
+    retry_after_s: float | None = None
     retryable: bool | None = None
 
 

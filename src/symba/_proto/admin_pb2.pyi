@@ -86,7 +86,7 @@ class DeleteCronResponse(_message.Message):
     def __init__(self, deleted: _Optional[bool] = ...) -> None: ...
 
 class Worker(_message.Message):
-    __slots__ = ("worker_id", "tags", "labels", "slots", "slots_busy", "last_seen", "stale")
+    __slots__ = ("worker_id", "tags", "labels", "slots", "slots_busy", "last_seen", "stale", "registered_tasks")
     class LabelsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -101,6 +101,7 @@ class Worker(_message.Message):
     SLOTS_BUSY_FIELD_NUMBER: _ClassVar[int]
     LAST_SEEN_FIELD_NUMBER: _ClassVar[int]
     STALE_FIELD_NUMBER: _ClassVar[int]
+    REGISTERED_TASKS_FIELD_NUMBER: _ClassVar[int]
     worker_id: str
     tags: _containers.RepeatedScalarFieldContainer[str]
     labels: _containers.ScalarMap[str, str]
@@ -108,7 +109,8 @@ class Worker(_message.Message):
     slots_busy: int
     last_seen: _timestamp_pb2.Timestamp
     stale: bool
-    def __init__(self, worker_id: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., labels: _Optional[_Mapping[str, str]] = ..., slots: _Optional[int] = ..., slots_busy: _Optional[int] = ..., last_seen: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., stale: _Optional[bool] = ...) -> None: ...
+    registered_tasks: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, worker_id: _Optional[str] = ..., tags: _Optional[_Iterable[str]] = ..., labels: _Optional[_Mapping[str, str]] = ..., slots: _Optional[int] = ..., slots_busy: _Optional[int] = ..., last_seen: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., stale: _Optional[bool] = ..., registered_tasks: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ListWorkersRequest(_message.Message):
     __slots__ = ()
