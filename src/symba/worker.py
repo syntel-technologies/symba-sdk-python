@@ -55,10 +55,7 @@ HandlerDecorator = Callable[[Callable[..., Any]], Callable[..., Any]]
 def _is_scheduled_claim_stream_recycle(exc: grpc.aio.AioRpcError) -> bool:
     """Return whether the engine intentionally recycled its gRPC connection."""
     details = (exc.details() or "").strip().lower()
-    return (
-        exc.code() == grpc.StatusCode.UNAVAILABLE
-        and details == _MAX_CONNECTION_AGE_DETAILS
-    )
+    return exc.code() == grpc.StatusCode.UNAVAILABLE and details == _MAX_CONNECTION_AGE_DETAILS
 
 
 class Worker:

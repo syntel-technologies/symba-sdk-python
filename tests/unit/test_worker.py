@@ -300,6 +300,7 @@ async def test_admission_loop_transitions_and_forces_reannounce():
 
 async def test_admission_loop_fails_open_on_hook_exception():
     """A raising probe must never wedge the worker: treat as 'accept'."""
+
     def boom() -> bool:
         raise RuntimeError("probe blew up")
 

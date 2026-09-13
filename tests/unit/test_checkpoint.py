@@ -134,9 +134,7 @@ async def test_fast_path_does_not_warn(monkeypatch):
     """SDK-5: with Redis configured the fallback WARN must not fire."""
     monkeypatch.setattr(checkpoint_mod, "_warned_no_redis", False)
     warnings: list[str] = []
-    monkeypatch.setattr(
-        checkpoint_mod._log, "warning", lambda event, **kw: warnings.append(event)
-    )
+    monkeypatch.setattr(checkpoint_mod._log, "warning", lambda event, **kw: warnings.append(event))
 
     store = _store(FakeWorkerStub(), FakeRedis())
     await store.write({"a": 1})

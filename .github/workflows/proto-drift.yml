@@ -1,52 +1,18 @@
-name: Proto drift
-
+name: Proto contract verification
 on:
   schedule:
-    - cron: "0 4 * * 1" # weekly, Monday 04:00 UTC
+    - cron: '0 4 * * 1'
   workflow_dispatch:
-    inputs:
-      engine_tag:
-        description: "Engine tag to regenerate stubs from (defaults to _proto/VERSION)"
-        required: false
-
-concurrency:
-  group: proto-drift
-  cancel-in-progress: true
-
 permissions:
-  contents: write
-  pull-requests: write
-
-env:
-  UV_FROZEN: "1"
-
+  contents: read
 jobs:
-  regenerate:
-    name: Regenerate stubs + open PR on drift
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
-          enable-cache: true
-      - run: uv sync --all-extras
-      - name: Regenerate committed stubs
-        run: |
-          if [ -n "${{ github.event.inputs.engine_tag }}" ]; then
-            make proto-gen SYMBA_TAG="${{ github.event.inputs.engine_tag }}"
-          else
-            make proto-gen
-          fi
-      - name: Open a PR if the stubs changed
-        uses: peter-evans/create-pull-request@v6
-        with:
-          branch: chore/proto-drift
-          title: "chore: regenerate proto stubs from engine"
-          commit-message: "chore: regenerate proto stubs from engine"
-          body: |
-            The committed proto stubs drifted from the engine's proto contract.
-            This PR regenerates `src/symba/_proto/` and bumps `_proto/VERSION`.
-
-            Review the diff and update `COMPATIBILITY.md` if the proto major changed.
-          labels: proto, automated
-          delete-branch: true
+          version: '0.11'
+      - run: uv sync --frozen --all-extras --python 3.13
+      - run: uv run --no-sync python tools/generate_proto.py --check

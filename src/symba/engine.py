@@ -53,7 +53,9 @@ def _classify_probe_error(exc: grpc.aio.AioRpcError, timeout_s: float) -> ProbeR
     code = exc.code()
     detail = exc.details() or ""
     if code == grpc.StatusCode.NOT_FOUND:
-        return ProbeResult(ok=True, stage="answered", detail="control plane answered (job not found)")
+        return ProbeResult(
+            ok=True, stage="answered", detail="control plane answered (job not found)"
+        )
     if code == grpc.StatusCode.DEADLINE_EXCEEDED:
         return ProbeResult(
             ok=False,

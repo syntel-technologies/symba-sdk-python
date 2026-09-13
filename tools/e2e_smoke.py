@@ -294,9 +294,7 @@ async def _main(target: str) -> int:
             with contextlib.suppress(asyncio.CancelledError, TimeoutError):
                 await worker_task
         await engine.aclose()
-    sys.stdout.write(
-        f"\nPASS: full control-plane + worker smoke verified against {target}\n"
-    )
+    sys.stdout.write(f"\nPASS: full control-plane + worker smoke verified against {target}\n")
     return 0
 
 

@@ -79,8 +79,7 @@ async def _main(target: str) -> int:
         suffix = uuid.uuid4().hex[:8]
 
         sys.stdout.write(
-            "E3 + E2: all_success gate with one skipped child "
-            "(succeeded excludes skip)\n"
+            "E3 + E2: all_success gate with one skipped child (succeeded excludes skip)\n"
         )
         await _run_case(
             engine,

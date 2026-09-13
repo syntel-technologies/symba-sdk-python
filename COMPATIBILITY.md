@@ -1,6 +1,6 @@
 # Compatibility
 
-The Symba SDK (`symba`) and the [Symba engine](https://github.com/amplior-ai/symba) communicate
+The Symba SDK (`symba`) and the [Symba engine](https://github.com/syntel-technologies/symba) communicate
 over a **protobuf wire contract**. The SDK commits the generated stubs (`src/symba/_proto/`) and
 records the proto version they were built from:
 

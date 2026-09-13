@@ -5,20 +5,20 @@
 <p align="center"><strong>The Python SDK for Symba — durable jobs with a decorator and a function.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/amplior-ai/symba-sdk-python/actions/workflows/ci.yml"><img src="https://github.com/amplior-ai/symba-sdk-python/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/syntel-technologies/symba-sdk-python/actions/workflows/ci.yml"><img src="https://github.com/syntel-technologies/symba-sdk-python/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
-  <a href="https://github.com/amplior-ai/symba"><img src="https://img.shields.io/badge/engine-Symba-336791.svg" alt="Symba engine"></a>
+  <a href="https://github.com/syntel-technologies/symba"><img src="https://img.shields.io/badge/engine-Symba-336791.svg" alt="Symba engine"></a>
 </p>
 
 Write a worker as a decorated `async def`, submit jobs from anywhere, and get durable,
 at-least-once execution — leases, retries, chains, fan-out/gates, human-in-the-loop signals,
-checkpoints, and capability routing — all driven by the [Symba engine](https://github.com/amplior-ai/symba).
+checkpoints, and capability routing — all driven by the [Symba engine](https://github.com/syntel-technologies/symba).
 The engine is **schema-blind and Postgres-backed**; this SDK is where your Python lives.
 
 > **Status:** pre-1.0 (`0.1.0`). One package ships both halves: the client (`Engine`) you submit
 > jobs from, and the worker (`Worker`) that runs them. The engine server + operator console live
-> in the [separate engine repo](https://github.com/amplior-ai/symba).
+> in the [separate engine repo](https://github.com/syntel-technologies/symba).
 
 <p align="center">
   <a href="#-quickstart">Quickstart</a> •
@@ -71,7 +71,7 @@ print(eng.submit("send_welcome_email", {"email": "a@b.co"}).result(timeout=30))
 ```
 
 You need a running engine on `:7233` — `docker compose up -d --wait` in the
-[engine repo](https://github.com/amplior-ai/symba) is the whole server. See
+[engine repo](https://github.com/syntel-technologies/symba) is the whole server. See
 [`examples/`](examples/) for runnable end-to-end flows.
 
 ## 🤔 Why the SDK
@@ -151,7 +151,7 @@ your **worker** claims and runs:
 
 Everything the engine records is a queryable, retryable row keyed by `ctx_id`. The engine owns
 durability; the SDK owns everything Python. See the engine README's
-[architecture section](https://github.com/amplior-ai/symba#-architecture) for the server side.
+[architecture section](https://github.com/syntel-technologies/symba#-architecture) for the server side.
 
 ## 📦 Install & extras
 
@@ -349,7 +349,7 @@ SDK ↔ engine version matrix and the handshake behavior.
 | [`symba_sdk_implementation.md`](symba_sdk_implementation.md) | The full implementation spec — the source of truth for every behavior. |
 | [`examples/README.md`](examples/README.md) | Runnable end-to-end programs (enrichment pipeline, human-in-the-loop, GPU batch, SymbaTest). |
 | [`COMPATIBILITY.md`](COMPATIBILITY.md) | SDK ↔ engine version matrix and the version handshake. |
-| [Engine repo](https://github.com/amplior-ai/symba) | The server, operator console, and the fuller architecture story. |
+| [Engine repo](https://github.com/syntel-technologies/symba) | The server, operator console, and the fuller architecture story. |
 
 ## Development
 

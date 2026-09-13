@@ -58,9 +58,7 @@ class _LoopThread:
             for task in pending:
                 task.cancel()
             if pending:
-                self._loop.run_until_complete(
-                    asyncio.gather(*pending, return_exceptions=True)
-                )
+                self._loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
             asyncio.set_event_loop(None)
             self._loop.close()
             with self._condition:

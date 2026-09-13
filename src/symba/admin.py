@@ -49,7 +49,9 @@ class AdminClient:
         return list(resp.schedules)
 
     async def set_cron_enabled(self, schedule_id: str, enabled: bool) -> admin_pb2.CronSchedule:
-        req = admin_pb2.SetCronEnabledRequest(schedule_id=schedule_id, enabled=enabled, tenant=self._tenant)
+        req = admin_pb2.SetCronEnabledRequest(
+            schedule_id=schedule_id, enabled=enabled, tenant=self._tenant
+        )
         return await self._call(self._client().SetCronEnabled, req)
 
     async def upsert_cron(

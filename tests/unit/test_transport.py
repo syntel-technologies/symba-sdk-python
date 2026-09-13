@@ -63,7 +63,9 @@ async def test_engine_settings_supply_tls_material(monkeypatch: pytest.MonkeyPat
         return object()
 
     monkeypatch.setattr("symba.transport.grpc.ssl_channel_credentials", _credentials)
-    monkeypatch.setattr("symba.transport.grpc.aio.secure_channel", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(
+        "symba.transport.grpc.aio.secure_channel", lambda *_args, **_kwargs: object()
+    )
     monkeypatch.setattr("builtins.open", mock_open(read_data=b"pem-data"))
     transport = Transport(
         EngineSettings(

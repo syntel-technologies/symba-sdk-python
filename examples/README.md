@@ -5,7 +5,7 @@ I/O (LLM calls, model weights, storage) is stubbed so every file runs as-is — 
 implementations.
 
 Most examples need a running engine on `grpc://localhost:7233`. Bring one up with
-`docker compose up -d --wait` in the [engine repo](https://github.com/amplior-ai/symba). The
+`docker compose up -d --wait` in the [engine repo](https://github.com/syntel-technologies/symba). The
 `04_symbatest` example needs **no engine** — it runs entirely in-memory.
 
 Install the SDK (with the CLI extra to use `symba run`):

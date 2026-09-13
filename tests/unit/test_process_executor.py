@@ -166,9 +166,7 @@ async def test_recycle_replaces_process_after_cap():
     ex = ProcessExecutor(max_workers=1, handlers=_HANDLERS, max_jobs_per_process=2)
     try:
         ctx = _ctx(FakeWorkerStub(), FakeControlStub())
-        pids = [
-            (await ex.run(_task("double", H.double), ctx, {"n": i}))["pid"] for i in range(3)
-        ]
+        pids = [(await ex.run(_task("double", H.double), ctx, {"n": i}))["pid"] for i in range(3)]
         # jobs 1+2 share the original process; job 3 lands on the recycled one.
         assert pids[0] == pids[1]
         assert pids[2] != pids[0]
@@ -184,9 +182,7 @@ async def test_recycle_disabled_by_default():
     ex = _executor(1)  # no max_jobs_per_process
     try:
         ctx = _ctx(FakeWorkerStub(), FakeControlStub())
-        pids = {
-            (await ex.run(_task("double", H.double), ctx, {"n": i}))["pid"] for i in range(4)
-        }
+        pids = {(await ex.run(_task("double", H.double), ctx, {"n": i}))["pid"] for i in range(4)}
         assert len(pids) == 1  # one process served every job
     finally:
         await ex.stop(1.0)

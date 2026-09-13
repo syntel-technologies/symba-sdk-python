@@ -11,18 +11,20 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from ._proto import common_pb2
+
 
 class JobState(enum.Enum):
     """Mirror of ``common.proto`` ``JobState`` (spec 4.2)."""
 
-    UNSPECIFIED = 0
-    SUBMITTED = 1
-    QUEUED = 2
-    RUNNING = 3
-    WAITING = 4
-    SUCCEEDED = 5
-    DEAD = 6
-    CANCELLED = 7
+    UNSPECIFIED = common_pb2.JOB_STATE_UNSPECIFIED
+    SUBMITTED = common_pb2.SUBMITTED
+    QUEUED = common_pb2.QUEUED
+    RUNNING = common_pb2.RUNNING
+    WAITING = common_pb2.WAITING
+    SUCCEEDED = common_pb2.SUCCEEDED
+    DEAD = common_pb2.DEAD
+    CANCELLED = common_pb2.CANCELLED
 
     @property
     def is_terminal(self) -> bool:

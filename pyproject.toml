@@ -5,7 +5,7 @@ description = "The Python SDK for Symba — durable jobs with a decorator and a 
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Amplior" }]
+authors = [{ name = "Syntel Technologies" }]
 keywords = ["jobs", "queue", "grpc", "workers", "durable-execution", "symba"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -38,9 +38,9 @@ cli = ["typer>=0.15,<1.0", "rich>=13.0,<16.0"]
 symba = "symba.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/amplior-ai/symba-sdk-python"
-Repository = "https://github.com/amplior-ai/symba-sdk-python"
-Engine = "https://github.com/amplior-ai/symba"
+Homepage = "https://github.com/syntel-technologies/symba-sdk-python"
+Repository = "https://github.com/syntel-technologies/symba-sdk-python"
+Engine = "https://github.com/syntel-technologies/symba"
 
 [dependency-groups]
 dev = [
