@@ -50,7 +50,9 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-distributions
-          path: dist/*
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
       - name: Attach distributions to the existing release
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
@@ -58,7 +60,8 @@ jobs:
             const fs = require('node:fs');
             const {data: release} = await github.rest.repos.getReleaseByTag({...context.repo, tag: context.ref.replace('refs/tags/', '')});
             const {data: assets} = await github.rest.repos.listReleaseAssets({...context.repo, release_id: release.id});
-            for (const name of fs.readdirSync('dist')) {
+            const distributions = fs.readdirSync('dist').filter(name => name.endsWith('.whl') || name.endsWith('.tar.gz'));
+            for (const name of distributions) {
               const data = fs.readFileSync(`dist/${name}`);
               const existing = assets.find(asset => asset.name === name);
               if (existing) {
