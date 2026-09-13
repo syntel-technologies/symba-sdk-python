@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Require the successful CI revision to still be main
         id: current
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: 'main'});
@@ -43,7 +43,7 @@ jobs:
           permission-issues: write
       - name: Propose version and notes, or tag an approved release PR
         if: steps.current.outputs.matches == 'true' && vars.RELEASE_APP_CLIENT_ID != ''
-        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ steps.bot.outputs.token }}
           target-branch: main
@@ -51,7 +51,7 @@ jobs:
           manifest-file: .release-please-manifest.json
       - name: Open a main-to-dev synchronization PR when needed
         if: steps.current.outputs.matches == 'true' && vars.RELEASE_APP_CLIENT_ID != ''
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ steps.bot.outputs.token }}
           script: |
