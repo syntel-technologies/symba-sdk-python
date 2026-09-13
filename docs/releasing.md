@@ -85,3 +85,17 @@ The GitHub `pypi` environment is restricted to `v*` tags. Repository Actions var
 
 
 Official PyPI guidance: [create a project through OIDC](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/), [add a publisher](https://docs.pypi.org/trusted-publishers/adding-a-publisher/), and [two-factor authentication](https://pypi.org/help/#twofa).
+
+## Dependency update reviews
+
+Dependabot proposes changes into `dev`; an open update PR is not a supported release.
+Compiler/runtime protobuf packages are grouped separately from general Python
+updates. Review generated-code changes and required runtime floors together; do
+not disable drift or minimum-dependency checks to accept a compiler upgrade.
+
+The SDK pins `grpcio-tools` exactly for reproducibility. On an update, run
+`uv run --no-sync python tools/generate_proto.py`, update `grpcio`/`protobuf` minimums
+from the generated guards, and run the drift, packaging, minimum-dependency and
+live-engine checks. Do not change `ENGINE_REF` unless the wire contract is also
+being updated. The generated-floor regression test checks installed package
+metadata, protecting consumers who resolve versions outside our lockfile.

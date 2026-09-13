@@ -47,14 +47,39 @@ def test_json_seam_roundtrip():
 
 
 def test_runtime_meets_gencode_floors():
-    """PKG-1: the installed protobuf/grpcio must satisfy the gencode floors.
+    """The installed runtime and published requirements cover the actual gencode."""
+    import ast
+    from importlib.metadata import requires, version
+    from pathlib import Path
 
-    The committed stubs are generated against protobuf 7.35 / grpcio 1.82.1; a
-    transitive resolution below those raises at import in a consumer project.
-    """
-    from importlib.metadata import version
-
+    from packaging.requirements import Requirement
     from packaging.version import Version
 
-    assert Version(version("protobuf")) >= Version("7.35"), "protobuf below the gencode floor"
-    assert Version(version("grpcio")) >= Version("1.82.1"), "grpcio below the gencode floor"
+    from symba._proto import common_pb2, common_pb2_grpc
+
+    module = ast.parse(Path(common_pb2.__file__).read_text())
+    validation = next(
+        node
+        for node in ast.walk(module)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "ValidateProtobufRuntimeVersion"
+    )
+    protobuf_floor = ".".join(str(ast.literal_eval(arg)) for arg in validation.args[1:4])
+    floors = {"protobuf": protobuf_floor, "grpcio": common_pb2_grpc.GRPC_GENERATED_VERSION}
+    declared = {
+        requirement.name: requirement
+        for entry in requires("syntel-symba") or []
+        if (requirement := Requirement(entry)).name in floors
+    }
+    for name, floor in floors.items():
+        assert Version(version(name)) >= Version(floor), f"{name} below the gencode floor"
+        # A newer lockfile alone cannot protect consumers resolving our public ranges.
+        lower_bounds = [
+            Version(spec.version)
+            for spec in declared[name].specifier
+            if spec.operator in {">=", "=="}
+        ]
+        assert lower_bounds and max(lower_bounds) >= Version(floor), (
+            f"{name} requirement allows a runtime older than generated code {floor}"
+        )
